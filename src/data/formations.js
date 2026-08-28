@@ -1,0 +1,138 @@
+const slot = (id, code, x, y) => ({ id, code, x, y })
+
+const gk = slot('gk', 'GK', 50, 8)
+const back4 = [
+  gk,
+  slot('lb', 'LB', 16, 24),
+  slot('lcb', 'CB', 36, 20),
+  slot('rcb', 'CB', 64, 20),
+  slot('rb', 'RB', 84, 24),
+]
+const back3 = [
+  gk,
+  slot('lcb', 'CB', 24, 22),
+  slot('cb', 'CB', 50, 18),
+  slot('rcb', 'CB', 76, 22),
+]
+const back5 = [
+  gk,
+  slot('lwb', 'LWB', 14, 32),
+  slot('lcb', 'CB', 29, 20),
+  slot('cb', 'CB', 50, 17),
+  slot('rcb', 'CB', 71, 20),
+  slot('rwb', 'RWB', 86, 32),
+]
+
+export const FORMATIONS = {
+  '4-2-3-1': [
+    ...back4,
+    slot('ldm', 'CDM', 35, 40),
+    slot('rdm', 'CDM', 65, 40),
+    slot('lw', 'LW', 16, 70),
+    slot('cam', 'CAM', 50, 62),
+    slot('rw', 'RW', 84, 70),
+    slot('st', 'ST', 50, 84),
+  ],
+  '4-3-3': [
+    ...back4,
+    slot('lcm', 'CM', 28, 46),
+    slot('cm', 'CM', 50, 40),
+    slot('rcm', 'CM', 72, 46),
+    slot('lw', 'LW', 16, 74),
+    slot('st', 'ST', 50, 84),
+    slot('rw', 'RW', 84, 74),
+  ],
+  '4-4-2': [
+    ...back4,
+    slot('lm', 'LM', 16, 52),
+    slot('lcm', 'CM', 36, 46),
+    slot('rcm', 'CM', 64, 46),
+    slot('rm', 'RM', 84, 52),
+    slot('lst', 'ST', 38, 80),
+    slot('rst', 'ST', 62, 80),
+  ],
+  '3-5-2': [
+    ...back3,
+    slot('lm', 'LM', 14, 50),
+    slot('lcm', 'CM', 32, 44),
+    slot('cm', 'CAM', 50, 54),
+    slot('rcm', 'CM', 68, 44),
+    slot('rm', 'RM', 86, 50),
+    slot('lst', 'ST', 38, 80),
+    slot('rst', 'ST', 62, 80),
+  ],
+  '5-4-1': [
+    ...back5,
+    slot('lm', 'LM', 18, 56),
+    slot('lcm', 'CM', 38, 48),
+    slot('rcm', 'CM', 62, 48),
+    slot('rm', 'RM', 82, 56),
+    slot('st', 'ST', 50, 82),
+  ],
+  '5-3-2': [
+    ...back5,
+    slot('lcm', 'CM', 28, 52),
+    slot('cm', 'CM', 50, 46),
+    slot('rcm', 'CM', 72, 52),
+    slot('lst', 'ST', 38, 80),
+    slot('rst', 'ST', 62, 80),
+  ],
+  '3-4-3': [
+    ...back3,
+    slot('lm', 'LM', 16, 50),
+    slot('lcm', 'CM', 36, 44),
+    slot('rcm', 'CM', 64, 44),
+    slot('rm', 'RM', 84, 50),
+    slot('lw', 'LW', 18, 76),
+    slot('st', 'ST', 50, 84),
+    slot('rw', 'RW', 82, 76),
+  ],
+  '4-1-2-1-2': [
+    ...back4,
+    slot('cdm', 'CDM', 50, 38),
+    slot('lcm', 'CM', 28, 54),
+    slot('rcm', 'CM', 72, 54),
+    slot('cam', 'CAM', 50, 66),
+    slot('lst', 'ST', 36, 82),
+    slot('rst', 'ST', 64, 82),
+  ],
+  '4-3-2-1': [
+    ...back4,
+    slot('lcm', 'CM', 28, 44),
+    slot('cm', 'CM', 50, 40),
+    slot('rcm', 'CM', 72, 44),
+    slot('lf', 'CF', 34, 68),
+    slot('rf', 'CF', 66, 68),
+    slot('st', 'ST', 50, 84),
+  ],
+  '4-5-1': [
+    ...back4,
+    slot('lm', 'LM', 14, 56),
+    slot('lcm', 'CM', 32, 46),
+    slot('cam', 'CAM', 50, 54),
+    slot('rcm', 'CM', 68, 46),
+    slot('rm', 'RM', 86, 56),
+    slot('st', 'ST', 50, 82),
+  ],
+  '3-4-2-1': [
+    ...back3,
+    slot('lm', 'LM', 16, 48),
+    slot('lcm', 'CM', 36, 42),
+    slot('rcm', 'CM', 64, 42),
+    slot('rm', 'RM', 84, 48),
+    slot('lf', 'CF', 34, 68),
+    slot('rf', 'CF', 66, 68),
+    slot('st', 'ST', 50, 84),
+  ],
+  '4-1-4-1': [
+    ...back4,
+    slot('cdm', 'CDM', 50, 38),
+    slot('lm', 'LM', 16, 60),
+    slot('lcm', 'CM', 36, 54),
+    slot('rcm', 'CM', 64, 54),
+    slot('rm', 'RM', 84, 60),
+    slot('st', 'ST', 50, 82),
+  ],
+}
+
+export const FORMATION_KEYS = Object.keys(FORMATIONS)
