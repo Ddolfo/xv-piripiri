@@ -1,4 +1,9 @@
-const BASE = '/ea/api/fc'
+const EA_HOST =
+  typeof window !== 'undefined' && window.location.hostname.endsWith('github.io')
+    ? 'https://xv-piripiri.necessary-cobra.workers.dev'
+    : ''
+
+const BASE = `${EA_HOST}/ea/api/fc`
 
 export const XV_CLUB = {
   name: 'XV de PiriPiri',
