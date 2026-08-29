@@ -1,13 +1,31 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { FORMATIONS } from '../data/formations'
+import { fixEaText, fixEaTree } from '../lib/eaApi'
 import { loadState, saveState, uid } from '../lib/storage'
 
+function healState(s) {
+  if (!s) return s
+  return {
+    ...s,
+    club: s.club ? { ...s.club, name: fixEaText(s.club.name || '') } : s.club,
+    ea: s.ea ? fixEaTree(s.ea) : s.ea,
+    players: Array.isArray(s.players)
+      ? s.players.map((p) => ({
+          ...p,
+          name: fixEaText(p.name || ''),
+          psn: p.psn ? fixEaText(p.psn) : p.psn,
+        }))
+      : s.players,
+  }
+}
+
 export function useStore() {
-  const [state, setState] = useState(() => loadState())
+  const [state, setState] = useState(() => healState(loadState()))
+  const healed = useMemo(() => healState(state), [state])
 
   useEffect(() => {
-    saveState(state)
-  }, [state])
+    saveState(healed)
+  }, [healed])
 
   const addPlayer = useCallback((player) => {
     setState((s) => ({
@@ -103,7 +121,13 @@ export function useStore() {
           tackleSuccess: m.tackleSuccess,
           redCards: m.redCards,
           proOverall: m.proOverall,
+          proHeight: m.proHeight,
+          proNationality: m.proNationality,
+          proPos: m.proPos,
+          proStyle: m.proStyle,
           favoritePosition: m.favoritePosition,
+          lastTenGoals: m.lastTenGoals || [],
+          lastTenSum: m.lastTenSum || 0,
           career: m.career || null,
           source: 'EA Pro Clubs',
         }
@@ -152,7 +176,7 @@ export function useStore() {
   )
 
   return {
-    ...state,
+    ...healed,
     slots,
     assignedIds,
     addPlayer,

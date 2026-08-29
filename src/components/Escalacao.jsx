@@ -164,7 +164,7 @@ export default function Escalacao({ store }) {
               </article>
             ))}
             {store.players.length === 0 && (
-              <div className="notice">Cadastre jogadores na aba Elenco para escalar.</div>
+              <div className="notice">O elenco entra automaticamente ao abrir o site. Espere o XV carregar.</div>
             )}
           </div>
         </section>

@@ -1,3 +1,5 @@
+import { fixEaText, fixEaTree } from './eaApi'
+
 const KEY = 'xv-piripiri-coach-v1'
 
 const empty = () => ({
@@ -6,7 +8,7 @@ const empty = () => ({
   lineup: {},
   club: {
     name: 'XV de PiriPiri',
-    clubId: '',
+    clubId: '14693',
     platform: 'common-gen5',
     lastSync: null,
     currentDivision: null,
@@ -16,6 +18,9 @@ const empty = () => ({
     info: null,
     playoffs: [],
     matches: [],
+    recent: null,
+    season: null,
+    board: null,
     positionCount: null,
   },
 })
@@ -29,8 +34,18 @@ export function loadState() {
     return {
       ...base,
       ...parsed,
-      club: { ...base.club, ...parsed.club },
-      ea: { ...base.ea, ...parsed.ea },
+      club: {
+        ...base.club,
+        ...parsed.club,
+        name: fixEaText(parsed.club?.name || base.club.name),
+        clubId: parsed.club?.clubId || base.club.clubId,
+      },
+      ea: fixEaTree({ ...base.ea, ...parsed.ea }),
+      players: (parsed.players || []).map((p) => ({
+        ...p,
+        name: fixEaText(p.name || ''),
+        psn: p.psn ? fixEaText(p.psn) : p.psn,
+      })),
     }
   } catch {
     return empty()

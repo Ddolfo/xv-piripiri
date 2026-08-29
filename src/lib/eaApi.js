@@ -1,5 +1,82 @@
 const BASE = '/ea/api/fc'
 
+export const XV_CLUB = {
+  name: 'XV de PiriPiri',
+  clubId: '14693',
+  platform: 'common-gen5',
+}
+
+const MOJIBAKE_PAIRS = [
+  ['Ã¡', 'á'],
+  ['Ã©', 'é'],
+  ['Ã­', 'í'],
+  ['Ã³', 'ó'],
+  ['Ãº', 'ú'],
+  ['Ã£', 'ã'],
+  ['Ãµ', 'õ'],
+  ['Ã¢', 'â'],
+  ['Ãª', 'ê'],
+  ['Ã´', 'ô'],
+  ['Ã§', 'ç'],
+  ['Ã\u00AD', 'í'],
+  ['Ã\u00A0', 'à'],
+  ['Ã\u00A1', 'á'],
+  ['Ã‰', 'É'],
+  ['Ã“', 'Ó'],
+  ['Ãš', 'Ú'],
+  ['Ã‡', 'Ç'],
+  ['Ãƒ', 'Ã'],
+  ['Âº', 'º'],
+  ['Âª', 'ª'],
+  ['EstÃdio', 'Estádio'],
+  ['nÃvel', 'nível'],
+]
+
+/**
+ * EA sometimes returns UTF-8 text already misread as Latin-1/Windows-1252
+ * ("EstÃdio de nÃvel 3" → "Estádio de nível 3").
+ */
+export function fixEaText(value) {
+  if (typeof value !== 'string' || !value) return value || ''
+  let out = value
+  for (let n = 0; n < 2 && /[ÃÂ]/.test(out); n += 1) {
+    try {
+      const bytes = new Uint8Array(out.length)
+      for (let i = 0; i < out.length; i += 1) {
+        const code = out.charCodeAt(i)
+        if (code > 255) break
+        bytes[i] = code
+      }
+      if (bytes.every((_, i) => out.charCodeAt(i) <= 255)) {
+        out = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+        continue
+      }
+    } catch {
+      /* cai no dicionário abaixo */
+    }
+    break
+  }
+  if (/[ÃÂ]/.test(out)) {
+    MOJIBAKE_PAIRS.forEach(([from, to]) => {
+      if (out.includes(from)) out = out.split(from).join(to)
+    })
+  }
+  return out
+}
+
+export function fixEaTree(value) {
+  if (typeof value === 'string') return fixEaText(value)
+  if (Array.isArray(value)) return value.map(fixEaTree)
+  if (value && typeof value === 'object') {
+    const out = {}
+    Object.entries(value).forEach(([k, v]) => {
+      out[k] = fixEaTree(v)
+    })
+    return out
+  }
+  return value
+}
+
 async function getJson(path, params = {}) {
   const url = new URL(path, window.location.origin)
   Object.entries(params).forEach(([k, v]) => {
@@ -10,7 +87,7 @@ async function getJson(path, params = {}) {
     const text = await res.text()
     throw new Error(`EA API ${res.status}: ${text.slice(0, 180)}`)
   }
-  return res.json()
+  return fixEaTree(await res.json())
 }
 
 async function settled(promise) {
@@ -21,14 +98,28 @@ async function settled(promise) {
   }
 }
 
-export async function searchClubs(clubName, platform = 'common-gen5') {
-  const data = await getJson(`${BASE}/allTimeLeaderboard/search`, {
-    platform,
-    clubName,
-  })
+function asList(data) {
   if (Array.isArray(data)) return data
   if (data?.clubs) return data.clubs
   return data ? [data] : []
+}
+
+export async function searchClubs(clubName, platform = 'common-gen5') {
+  return asList(
+    await getJson(`${BASE}/allTimeLeaderboard/search`, {
+      platform,
+      clubName,
+    }),
+  )
+}
+
+export async function searchSeasonClubs(clubName, platform = 'common-gen5') {
+  return asList(
+    await getJson(`${BASE}/currentSeasonLeaderboard/search`, {
+      platform,
+      clubName,
+    }),
+  )
 }
 
 export async function getClubInfo(clubId, platform = 'common-gen5') {
@@ -65,8 +156,9 @@ export async function getClubMatches(
   })
 }
 
-export async function loadClubBundle(clubId, platform = 'common-gen5') {
+export async function loadClubBundle(clubId, platform = 'common-gen5', clubName = '') {
   const id = String(clubId)
+  const name = clubName || XV_CLUB.name
   const [
     membersPayload,
     careerPayload,
@@ -76,6 +168,8 @@ export async function loadClubBundle(clubId, platform = 'common-gen5') {
     league,
     playoff,
     friendly,
+    seasonList,
+    boardList,
   ] = await Promise.all([
     settled(getMembersStats(id, platform)),
     settled(getMembersCareer(id, platform)),
@@ -83,8 +177,10 @@ export async function loadClubBundle(clubId, platform = 'common-gen5') {
     settled(getClubInfo(id, platform)),
     settled(getPlayoffAchievements(id, platform)),
     settled(getClubMatches(id, 'leagueMatch', platform, 10)),
-    settled(getClubMatches(id, 'playoffMatch', platform, 5)),
-    settled(getClubMatches(id, 'friendlyMatch', platform, 5)),
+    settled(getClubMatches(id, 'playoffMatch', platform, 10)),
+    settled(getClubMatches(id, 'friendlyMatch', platform, 10)),
+    settled(searchSeasonClubs(name, platform)),
+    settled(searchClubs(name, platform)),
   ])
 
   const members = normalizeMembers(membersPayload)
@@ -98,17 +194,36 @@ export async function loadClubBundle(clubId, platform = 'common-gen5') {
     career.forEach((c) => merged.push({ ...c, career: c }))
   }
 
+  const info = normalizeInfo(infoPayload, id)
+  const matches = [
+    ...normalizeMatches(league, id, 'leagueMatch'),
+    ...normalizeMatches(playoff, id, 'playoffMatch'),
+    ...normalizeMatches(friendly, id, 'friendlyMatch'),
+  ].sort((a, b) => b.timestamp - a.timestamp)
+
   return {
     members: merged,
     overall: normalizeOverall(overallPayload, id),
-    info: normalizeInfo(infoPayload, id),
+    info,
     playoffs: normalizePlayoffs(playoffsPayload),
-    matches: [
-      ...normalizeMatches(league, id, 'leagueMatch'),
-      ...normalizeMatches(playoff, id, 'playoffMatch'),
-      ...normalizeMatches(friendly, id, 'friendlyMatch'),
-    ].sort((a, b) => b.timestamp - a.timestamp),
+    matches,
+    recent: summarizeMatches(matches),
+    season: normalizeBoard(pickFromSearch(seasonList, id)),
+    board: normalizeBoard(pickFromSearch(boardList, id)),
     positionCount: membersPayload?.positionCount || careerPayload?.positionCount || null,
+  }
+}
+
+export function bundleToEa(bundle) {
+  return {
+    overall: bundle.overall,
+    info: bundle.info,
+    playoffs: bundle.playoffs,
+    matches: bundle.matches,
+    recent: bundle.recent,
+    season: bundle.season,
+    board: bundle.board,
+    positionCount: bundle.positionCount,
   }
 }
 
@@ -120,11 +235,13 @@ export function normalizeMembers(payload) {
     payload.players ||
     (Array.isArray(payload) ? payload : [])
   return list.map((m) => {
-    const name =
-      m.name || m.playerName || m.memberName || m.proName || m.gamertag || ''
+    const name = fixEaText(
+      m.name || m.playerName || m.memberName || m.proName || m.gamertag || '',
+    )
+    const lastTenGoals = lastTenFrom(m)
     return {
       name,
-      psn: m.proName || m.name || m.gamertag || name,
+      psn: fixEaText(m.proName || m.name || m.gamertag || name),
       games: num(m.gamesPlayed ?? m.games ?? m.gamesPlayedClub),
       winRate: num(m.winRate),
       goals: num(m.goals ?? m.goalsClub),
@@ -141,7 +258,12 @@ export function normalizeMembers(payload) {
       redCards: num(m.redCards),
       proOverall: num(m.proOverall ?? m.proOverallStr),
       proHeight: num(m.proHeight),
+      proNationality: m.proNationality,
+      proPos: num(m.proPos),
+      proStyle: num(m.proStyle),
       favoritePosition: m.favoritePosition || m.position || '',
+      lastTenGoals,
+      lastTenSum: lastTenGoals.reduce((a, n) => a + n, 0),
       raw: m,
     }
   })
@@ -150,15 +272,21 @@ export function normalizeMembers(payload) {
 function normalizeCareer(payload) {
   if (!payload) return []
   const list = payload.members || (Array.isArray(payload) ? payload : [])
-  return list.map((m) => ({
-    name: m.name || m.proName || '',
-    games: num(m.gamesPlayed),
-    goals: num(m.goals),
-    assists: num(m.assists),
-    motm: num(m.manOfTheMatch),
-    rating: num(m.ratingAve),
-    favoritePosition: m.favoritePosition || '',
-  }))
+  return list.map((m) => {
+    const lastTenGoals = lastTenFrom(m)
+    return {
+      name: fixEaText(m.name || m.proName || ''),
+      games: num(m.gamesPlayed),
+      goals: num(m.goals),
+      assists: num(m.assists),
+      motm: num(m.manOfTheMatch),
+      rating: num(m.ratingAve),
+      proPos: num(m.proPos),
+      favoritePosition: m.favoritePosition || '',
+      lastTenGoals,
+      lastTenSum: lastTenGoals.reduce((a, n) => a + n, 0),
+    }
+  })
 }
 
 function normalizeOverall(payload, clubId) {
@@ -166,22 +294,42 @@ function normalizeOverall(payload, clubId) {
     ? payload[0]
     : payload?.[clubId] || payload?.clubs?.[clubId] || payload
   if (!row || typeof row !== 'object') return null
+  const wins = num(row.wins)
+  const ties = num(row.ties)
+  const losses = num(row.losses)
+  const games = num(row.gamesPlayed)
+  const goals = num(row.goals)
+  const goalsAgainst = num(row.goalsAgainst)
   return {
-    wins: num(row.wins),
-    ties: num(row.ties),
-    losses: num(row.losses),
-    games: num(row.gamesPlayed),
+    wins,
+    ties,
+    losses,
+    games,
     leagueGames: num(row.leagueAppearances),
     playoffGames: num(row.gamesPlayedPlayoff),
-    goals: num(row.goals),
-    goalsAgainst: num(row.goalsAgainst),
+    goals,
+    goalsAgainst,
+    goalDiff: goals - goalsAgainst,
+    winPct: games ? Math.round((wins / games) * 100) : 0,
+    pointsClassic: wins * 3 + ties,
+    goalsPerGame: games ? goals / games : 0,
+    concededPerGame: games ? goalsAgainst / games : 0,
     promotions: num(row.promotions),
     relegations: num(row.relegations),
     bestDivision: num(row.bestDivision),
+    bestFinishGroup: num(row.bestFinishGroup),
     skillRating: num(row.skillRating),
     reputation: num(row.reputationtier),
     winStreak: num(row.wstreak),
     unbeatenStreak: num(row.unbeatenstreak),
+    finishes: [1, 2, 3, 4, 5, 6].map((d) => ({
+      code: d,
+      label: divisionLabel(d),
+      titles: num(row[`finishesInDivision${d}Group1`]),
+    })),
+    lastOpponentIds: Array.from({ length: 10 }, (_, i) => String(row[`lastOpponent${i}`] || '')).filter(
+      (v) => v && v !== '0',
+    ),
     form: Array.from({ length: 10 }, (_, i) => formCode(row[`lastMatch${i}`])).filter(Boolean),
   }
 }
@@ -189,21 +337,37 @@ function normalizeOverall(payload, clubId) {
 function normalizeInfo(payload, clubId) {
   const row = payload?.[clubId] || payload?.[String(clubId)] || payload
   if (!row || typeof row !== 'object') return null
+  const kit = row.customKit || {}
   return {
-    name: row.name || row.clubName || '',
-    stadium: row.customKit?.stadName || '',
+    name: fixEaText(row.name || row.clubName || ''),
+    stadium: fixEaText(kit.stadName || ''),
+    clubId: String(row.clubId || clubId || ''),
     teamId: row.teamId,
+    regionId: row.regionId,
+    kit: {
+      home: [kit.kitColor1, kit.kitColor2, kit.kitColor3, kit.kitColor4].map(eaColor).filter(Boolean),
+      away: [kit.kitAColor1, kit.kitAColor2, kit.kitAColor3, kit.kitAColor4].map(eaColor).filter(Boolean),
+      third: [kit.kitThrdColor1, kit.kitThrdColor2, kit.kitThrdColor3, kit.kitThrdColor4]
+        .map(eaColor)
+        .filter(Boolean),
+    },
   }
 }
 
 function normalizePlayoffs(payload) {
   const list = Array.isArray(payload) ? payload : []
-  return list.map((p) => ({
-    seasonId: String(p.seasonId || ''),
-    seasonName: String(p.seasonName || '').replace('CLUBS_LEAGUE_SEASON_', 'Temporada '),
-    bestDivision: num(p.bestDivision),
-    bestFinishGroup: num(p.bestFinishGroup),
-  }))
+  return list.map((p) => {
+    const bestDivision = num(p.bestDivision)
+    const bestFinishGroup = num(p.bestFinishGroup)
+    return {
+      seasonId: String(p.seasonId || ''),
+      seasonName: String(p.seasonName || '').replace('CLUBS_LEAGUE_SEASON_', 'Temporada '),
+      bestDivision,
+      bestDivisionLabel: divisionLabel(bestDivision),
+      bestFinishGroup,
+      bestFinishLabel: groupFinishLabel(bestFinishGroup),
+    }
+  })
 }
 
 function normalizeMatches(payload, clubId, type) {
@@ -215,6 +379,9 @@ function normalizeMatches(payload, clubId, type) {
     const oppId = Object.keys(clubs).find((k) => k !== us) || ''
     const theirs = clubs[oppId] || {}
     const result = matchResult(ours)
+    const agg = m.aggregate?.[us] || {}
+    const roster = m.players?.[us] || {}
+    const playerCount = Object.keys(roster).length
     return {
       id: String(m.matchId || `${type}-${m.timestamp}`),
       type,
@@ -222,8 +389,22 @@ function normalizeMatches(payload, clubId, type) {
       timeAgo: m.timeAgo || null,
       usGoals: num(ours.goals ?? ours.score),
       themGoals: num(theirs.goals ?? theirs.score),
-      opponent: theirs.details?.name || oppId || 'Adversário',
+      opponent: fixEaText(theirs.details?.name || '') || oppId || 'Adversário',
+      opponentId: oppId,
       result,
+      winnerByDnf: num(ours.winnerByDnf) === 1,
+      seasonId: ours.season_id != null ? String(ours.season_id) : '',
+      shots: num(agg.shots),
+      assists: num(agg.assists),
+      passAttempts: num(agg.passattempts),
+      passes: num(agg.passesmade),
+      tackles: num(agg.tacklesmade),
+      tackleAttempts: num(agg.tackleattempts),
+      saves: num(agg.saves),
+      redCards: num(agg.redcards),
+      motm: num(agg.mom),
+      playersOnPitch: playerCount,
+      avgRating: playerCount && num(agg.rating) ? num(agg.rating) / playerCount : 0,
     }
   })
 }
@@ -254,6 +435,303 @@ function num(v) {
   return Number.isFinite(n) ? n : 0
 }
 
+function lastTenFrom(m) {
+  const arr = []
+  for (let i = 1; i <= 10; i += 1) {
+    const key = `prevGoals${i}`
+    if (m[key] == null || m[key] === '') continue
+    arr.push(num(m[key]))
+  }
+  return arr
+}
+
+export function eaColor(v) {
+  const n = Number(v)
+  if (!Number.isFinite(n) || n <= 0) return ''
+  return `#${n.toString(16).padStart(6, '0')}`
+}
+
+function pickFromSearch(list, clubId) {
+  const arr = Array.isArray(list) ? list : []
+  const id = String(clubId)
+  return arr.find((x) => String(pickClubId(x)) === id) || arr[0] || null
+}
+
+function normalizeBoard(row) {
+  if (!row || typeof row !== 'object') return null
+  const wins = num(row.wins)
+  const ties = num(row.ties)
+  const losses = num(row.losses)
+  const games = num(row.gamesPlayed)
+  const goals = num(row.goals)
+  const goalsAgainst = num(row.goalsAgainst)
+  return {
+    wins,
+    ties,
+    losses,
+    games,
+    playoffGames: num(row.gamesPlayedPlayoff),
+    goals,
+    goalsAgainst,
+    goalDiff: goals - goalsAgainst,
+    cleanSheets: num(row.cleanSheets),
+    points: num(row.points),
+    pointsClassic: wins * 3 + ties,
+    winPct: games ? Math.round((wins / games) * 100) : 0,
+    goalsPerGame: games ? goals / games : 0,
+    concededPerGame: games ? goalsAgainst / games : 0,
+    promotions: num(row.promotions),
+    relegations: num(row.relegations),
+    bestDivision: num(row.bestDivision),
+    currentDivision: num(row.currentDivision),
+    reputation: num(row.reputationtier),
+    name: pickClubName(row),
+  }
+}
+
+function summarizeMatches(matches) {
+  const list = matches || []
+  if (!list.length) return null
+  const wins = list.filter((m) => m.result === 'V').length
+  const ties = list.filter((m) => m.result === 'E').length
+  const losses = list.filter((m) => m.result === 'D').length
+  const gf = list.reduce((a, m) => a + (m.usGoals || 0), 0)
+  const ga = list.reduce((a, m) => a + (m.themGoals || 0), 0)
+  const shots = list.reduce((a, m) => a + (m.shots || 0), 0)
+  const passes = list.reduce((a, m) => a + (m.passes || 0), 0)
+  const passAttempts = list.reduce((a, m) => a + (m.passAttempts || 0), 0)
+  const tackles = list.reduce((a, m) => a + (m.tackles || 0), 0)
+  return {
+    games: list.length,
+    wins,
+    ties,
+    losses,
+    goals: gf,
+    goalsAgainst: ga,
+    goalDiff: gf - ga,
+    shots,
+    passes,
+    passAttempts,
+    passPct: passAttempts ? Math.round((passes / passAttempts) * 100) : 0,
+    tackles,
+    avgRating:
+      list.filter((m) => m.avgRating).reduce((a, m) => a + m.avgRating, 0) /
+        (list.filter((m) => m.avgRating).length || 1) || 0,
+  }
+}
+
+function namesMatch(a, b) {
+  const na = String(a || '').trim().toLowerCase()
+  const nb = String(b || '').trim().toLowerCase()
+  return na && nb && (na === nb || na.includes(nb) || nb.includes(na))
+}
+
+function emptyStats() {
+  return {
+    games: 0,
+    winRate: 0,
+    goals: 0,
+    assists: 0,
+    rating: 0,
+    motm: 0,
+    cleanSheetsDef: 0,
+    cleanSheetsGK: 0,
+    shotSuccess: 0,
+    passes: 0,
+    passSuccess: 0,
+    tackles: 0,
+    tackleSuccess: 0,
+    redCards: 0,
+    proOverall: 0,
+    favoritePosition: '',
+  }
+}
+
+function diffStats(career, club) {
+  if (!career) return null
+  const c = club || emptyStats()
+  const games = Math.max(0, (career.games || 0) - (c.games || 0))
+  if (games <= 0) return null
+  return {
+    games,
+    goals: Math.max(0, (career.goals || 0) - (c.goals || 0)),
+    assists: Math.max(0, (career.assists || 0) - (c.assists || 0)),
+    motm: Math.max(0, (career.motm || 0) - (c.motm || 0)),
+    rating: career.rating || c.rating || 0,
+    favoritePosition: career.favoritePosition || c.favoritePosition || '',
+    estimated: true,
+  }
+}
+
+function parseMatchEvents(line) {
+  const raw = [
+    line?.match_event_aggregate_0,
+    line?.match_event_aggregate_1,
+    line?.match_event_aggregate_2,
+    line?.match_event_aggregate_3,
+  ]
+    .filter(Boolean)
+    .join(',')
+  const map = {}
+  String(raw)
+    .split(',')
+    .filter(Boolean)
+    .forEach((part) => {
+      const [k, v] = part.split(':')
+      if (k) map[Number(k)] = num(v)
+    })
+  return map
+}
+
+function playerFromMatches(payload, clubId, playerName, type) {
+  const list = Array.isArray(payload) ? payload : []
+  const us = String(clubId)
+  return list
+    .map((m) => {
+      const clubs = m.clubs || {}
+      const ours = clubs[us] || {}
+      const oppId = Object.keys(clubs).find((k) => k !== us) || ''
+      const theirs = clubs[oppId] || {}
+      const roster = m.players?.[us] || {}
+      const line = Object.values(roster).find((p) =>
+        namesMatch(p.playername || p.name, playerName),
+      )
+      if (!line) return null
+      const events = parseMatchEvents(line)
+      const passes = num(line.passesmade)
+      const passAttempts = num(line.passattempts)
+      const tackles = num(line.tacklesmade)
+      const tackleAttempts = num(line.tackleattempts)
+      const goals = num(line.goals)
+      const assists = num(line.assists)
+      const shots = num(line.shots)
+      const saves =
+        num(line.saves) +
+        num(line.ballDiveSaves) +
+        num(line.crossSaves) +
+        num(line.parrySaves) +
+        num(line.punchSaves) +
+        num(line.reflexSaves) +
+        num(line.goodDirectionSaves)
+      return {
+        id: String(m.matchId || `${type}-${m.timestamp}`),
+        type,
+        timestamp: num(m.timestamp),
+        timeAgo: m.timeAgo || null,
+        opponent: fixEaText(theirs.details?.name || '') || oppId || 'Adversário',
+        usGoals: num(ours.goals ?? ours.score),
+        themGoals: num(theirs.goals ?? theirs.score),
+        result: matchResult(ours),
+        winnerByDnf: num(ours.winnerByDnf) === 1,
+        goals,
+        assists,
+        involvement: goals + assists,
+        rating: num(line.rating),
+        motm: num(line.mom),
+        passes,
+        passAttempts,
+        passPct: passAttempts ? Math.round((passes / passAttempts) * 100) : null,
+        shots,
+        tackles,
+        tackleAttempts,
+        tacklePct: tackleAttempts ? Math.round((tackles / tackleAttempts) * 100) : null,
+        saves,
+        redCards: num(line.redcards),
+        fouls: events[30] || 0,
+        foulsWon: events[31] || 0,
+        minutes: Math.round(num(line.secondsPlayed) / 60),
+        position: line.pos || '',
+        cleanSheet: num(line.cleansheetsany) === 1 || num(line.cleansheetsdef) === 1 || num(line.cleansheetsgk) === 1,
+        goalsConceded: num(line.goalsconceded),
+        isKeeper: String(line.pos || '').toLowerCase() === 'goalkeeper' || saves > 0,
+      }
+    })
+    .filter(Boolean)
+}
+
+export async function loadPlayerDossier(playerName, clubId, clubName, platform = 'common-gen5') {
+  const id = String(clubId)
+  const [membersPayload, careerPayload, league, playoff, friendly] = await Promise.all([
+    settled(getMembersStats(id, platform)),
+    settled(getMembersCareer(id, platform)),
+    settled(getClubMatches(id, 'leagueMatch', platform, 10)),
+    settled(getClubMatches(id, 'playoffMatch', platform, 10)),
+    settled(getClubMatches(id, 'friendlyMatch', platform, 10)),
+  ])
+
+  const club =
+    normalizeMembers(membersPayload).find((m) => namesMatch(m.name, playerName) || namesMatch(m.psn, playerName)) ||
+    null
+  const career =
+    normalizeCareer(careerPayload).find((m) => namesMatch(m.name, playerName)) || null
+  const others = diffStats(career, club)
+  const matches = [
+    ...playerFromMatches(league, id, playerName, 'leagueMatch'),
+    ...playerFromMatches(playoff, id, playerName, 'playoffMatch'),
+    ...playerFromMatches(friendly, id, playerName, 'friendlyMatch'),
+  ].sort((a, b) => b.timestamp - a.timestamp)
+
+  const clubs = []
+  if (club) {
+    clubs.push({
+      id,
+      label: clubName || 'XV de PiriPiri',
+      hint: 'Clube atual',
+      stats: club,
+      current: true,
+    })
+  }
+  clubs.push({
+    id: 'geral',
+    label: 'Geral',
+    hint: 'Todos os times',
+    stats: career || club,
+  })
+  if (others) {
+    clubs.push({
+      id: 'outros',
+      label: 'Passagens anteriores',
+      hint: 'Sem nome na API da EA',
+      stats: others,
+      estimated: true,
+    })
+  }
+
+  const rated = matches.filter((m) => m.rating)
+  const passAttempts = matches.reduce((a, m) => a + (m.passAttempts || 0), 0)
+  const passes = matches.reduce((a, m) => a + (m.passes || 0), 0)
+  const tackleAttempts = matches.reduce((a, m) => a + (m.tackleAttempts || 0), 0)
+  const tackles = matches.reduce((a, m) => a + (m.tackles || 0), 0)
+  const recent = {
+    games: matches.length,
+    goals: matches.reduce((a, m) => a + (m.goals || 0), 0),
+    assists: matches.reduce((a, m) => a + (m.assists || 0), 0),
+    involvement: matches.reduce((a, m) => a + (m.involvement || 0), 0),
+    motm: matches.reduce((a, m) => a + (m.motm || 0), 0),
+    shots: matches.reduce((a, m) => a + (m.shots || 0), 0),
+    tackles,
+    tackleAttempts,
+    saves: matches.reduce((a, m) => a + (m.saves || 0), 0),
+    minutes: matches.reduce((a, m) => a + (m.minutes || 0), 0),
+    passes,
+    passAttempts,
+    passPct: passAttempts ? Math.round((passes / passAttempts) * 100) : null,
+    fouls: matches.reduce((a, m) => a + (m.fouls || 0), 0),
+    foulsWon: matches.reduce((a, m) => a + (m.foulsWon || 0), 0),
+    redCards: matches.reduce((a, m) => a + (m.redCards || 0), 0),
+    rating: rated.length ? rated.reduce((a, m) => a + m.rating, 0) / rated.length : 0,
+  }
+
+  return {
+    clubs,
+    matches,
+    club,
+    career,
+    recent,
+    raw: club?.raw || null,
+  }
+}
+
 export function pickClubId(entry) {
   return (
     entry?.clubId ||
@@ -265,12 +743,12 @@ export function pickClubId(entry) {
 }
 
 export function pickClubName(entry) {
-  return (
+  return fixEaText(
     entry?.clubName ||
-    entry?.name ||
-    entry?.clubInfo?.name ||
-    entry?.clubInfo?.clubName ||
-    'Clube'
+      entry?.name ||
+      entry?.clubInfo?.name ||
+      entry?.clubInfo?.clubName ||
+      'Clube',
   )
 }
 
@@ -289,4 +767,91 @@ export const POS_LINE_LABEL = {
   midfielder: 'Meio',
   defender: 'Defesa',
   goalkeeper: 'Goleiro',
+}
+
+/**
+ * Código da EA: 1 = Elite, 2 = Divisão 1, 3 = Divisão 2, 4 = Divisão 3…
+ * No XV (14693) a temporada atual vem 4 (= 3ª) e o pico da carreira 2 (= 1ª).
+ */
+export function divisionLabel(code) {
+  const n = Number(code)
+  if (!Number.isFinite(n) || n <= 0) return '—'
+  if (n === 1) return 'Elite'
+  return `Divisão ${n - 1}`
+}
+
+export function groupFinishLabel(group) {
+  const n = Number(group)
+  if (!Number.isFinite(n) || n <= 0) return ''
+  return `${n}º do grupo`
+}
+
+export const PRO_POS_LABEL = {
+  0: 'GOL',
+  2: 'ALA D',
+  3: 'LD',
+  4: 'ZAG D',
+  5: 'ZAG',
+  6: 'ZAG E',
+  7: 'LE',
+  8: 'ALA E',
+  9: 'VOL D',
+  10: 'VOL',
+  11: 'VOL E',
+  12: 'MD',
+  13: 'MC D',
+  14: 'MC',
+  15: 'MC E',
+  16: 'ME',
+  17: 'MEI D',
+  18: 'MEI',
+  19: 'MEI E',
+  20: 'PD',
+  21: 'SA',
+  22: 'PE',
+  23: 'PD',
+  24: 'CA D',
+  25: 'CA',
+  26: 'CA E',
+  27: 'PE',
+}
+
+export const NATIONS = {
+  14: 'Inglaterra',
+  18: 'França',
+  21: 'Alemanha',
+  27: 'Itália',
+  38: 'Portugal',
+  45: 'Espanha',
+  52: 'Argentina',
+  54: 'Brasil',
+  70: 'Holanda',
+}
+
+const NATION_ISO = {
+  14: 'gb-eng',
+  18: 'fr',
+  21: 'de',
+  27: 'it',
+  38: 'pt',
+  45: 'es',
+  52: 'ar',
+  54: 'br',
+  70: 'nl',
+}
+
+export function nationFlagUrl(id) {
+  const iso = NATION_ISO[Number(id)]
+  if (!iso) return ''
+  return `https://flagcdn.com/w80/${iso}.png`
+}
+
+export function playerInitials(name) {
+  const parts = String(name || '')
+    .replace(/[_-]+/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase()
+  return String(name || 'XV').slice(0, 2).toUpperCase()
 }
