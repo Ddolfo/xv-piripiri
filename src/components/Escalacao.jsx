@@ -36,6 +36,7 @@ function playerTag(player) {
 
 export default function Escalacao({ store }) {
   const [overSlot, setOverSlot] = useState(null)
+  const [picked, setPicked] = useState(null)
   const [exporting, setExporting] = useState(false)
   const [exportMsg, setExportMsg] = useState('')
   const cardRef = useRef(null)
@@ -70,6 +71,7 @@ export default function Escalacao({ store }) {
     e.preventDefault()
     const playerId = e.dataTransfer.getData('text/plain')
     if (playerId) store.assignPlayer(slotId, playerId)
+    setPicked(null)
     setOverSlot(null)
   }
 
@@ -109,7 +111,10 @@ export default function Escalacao({ store }) {
       <div className="topbar">
         <div>
           <h2>Escalação</h2>
-          <p>Arraste o elenco para o campo. Baixe a imagem e envie no grupo.</p>
+          <p>
+            No computador, arraste para o campo. No celular, toque no jogador e depois na posição.
+            Toque no X para tirar.
+          </p>
         </div>
         <div className="actions">
           <select
@@ -144,8 +149,12 @@ export default function Escalacao({ store }) {
             {store.players.map((p) => (
               <article
                 key={p.id}
-                className={`player-card ${store.assignedIds.has(p.id) ? 'used' : ''}`}
-                draggable
+                className={`player-card ${store.assignedIds.has(p.id) ? 'used' : ''}${picked === p.id ? ' picked' : ''}`}
+                draggable={!store.assignedIds.has(p.id)}
+                onClick={() => {
+                  if (store.assignedIds.has(p.id)) return
+                  setPicked((cur) => (cur === p.id ? null : p.id))
+                }}
                 onDragStart={(e) => onDragStart(e, p.id)}
               >
                 <div>
@@ -222,7 +231,13 @@ export default function Escalacao({ store }) {
                       }}
                     >
                       <div
-                        className={`slot-hole ${player ? 'filled' : ''} ${overSlot === slot.id ? 'over' : ''}`}
+                        className={`slot-hole ${player ? 'filled' : ''} ${overSlot === slot.id ? 'over' : ''} ${picked && !player ? 'ready' : ''}`}
+                        onClick={() => {
+                          if (picked) {
+                            store.assignPlayer(slot.id, picked)
+                            setPicked(null)
+                          }
+                        }}
                         onDragOver={(e) => {
                           e.preventDefault()
                           setOverSlot(slot.id)
@@ -234,7 +249,10 @@ export default function Escalacao({ store }) {
                           <button
                             className="remove-x"
                             title="Remover"
-                            onClick={() => store.clearSlot(slot.id)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              store.clearSlot(slot.id)
+                            }}
                           >
                             ×
                           </button>

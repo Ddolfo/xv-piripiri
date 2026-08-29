@@ -13,10 +13,18 @@ export default function Header({ tab, setTab, players, club, overall, booting })
       </div>
 
       <nav className="nav">
-        <button className={tab === 'stats' ? 'active' : ''} onClick={() => setTab('stats')}>
+        <button
+          type="button"
+          className={tab === 'stats' ? 'active' : ''}
+          onClick={() => setTab('stats')}
+        >
           Estatísticas
         </button>
-        <button className={tab === 'escalacao' ? 'active' : ''} onClick={() => setTab('escalacao')}>
+        <button
+          type="button"
+          className={tab === 'escalacao' ? 'active' : ''}
+          onClick={() => setTab('escalacao')}
+        >
           Escalação
         </button>
       </nav>
