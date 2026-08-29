@@ -76,7 +76,7 @@ export function useStore() {
     setState((s) => ({ ...s, club: { ...s.club, ...club } }))
   }, [])
 
-  const upsertFromEa = useCallback((members) => {
+  const upsertFromEa = useCallback((members, extra = {}) => {
     setState((s) => {
       const players = [...s.players]
       members.forEach((m) => {
@@ -89,11 +89,22 @@ export function useStore() {
         )
         const stats = {
           games: m.games,
+          winRate: m.winRate,
           goals: m.goals,
           assists: m.assists,
           rating: m.rating,
           motm: m.motm,
+          cleanSheetsDef: m.cleanSheetsDef,
+          cleanSheetsGK: m.cleanSheetsGK,
+          shotSuccess: m.shotSuccess,
+          passes: m.passes,
+          passSuccess: m.passSuccess,
+          tackles: m.tackles,
+          tackleSuccess: m.tackleSuccess,
+          redCards: m.redCards,
+          proOverall: m.proOverall,
           favoritePosition: m.favoritePosition,
+          career: m.career || null,
           source: 'EA Pro Clubs',
         }
         if (idx >= 0) {
@@ -117,7 +128,15 @@ export function useStore() {
       return {
         ...s,
         players,
-        club: { ...s.club, lastSync: new Date().toISOString() },
+        club: {
+          ...s.club,
+          lastSync: new Date().toISOString(),
+          ...(extra.club || {}),
+        },
+        ea: {
+          ...s.ea,
+          ...(extra.ea || {}),
+        },
       }
     })
   }, [])

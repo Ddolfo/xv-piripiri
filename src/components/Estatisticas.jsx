@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
 import {
-  getMembersCareer,
-  getMembersStats,
-  normalizeMembers,
+  loadClubBundle,
+  MATCH_TYPE_LABEL,
+  POS_LINE_LABEL,
   pickClubId,
   pickClubName,
+  pickCurrentDivision,
   searchClubs,
 } from '../lib/eaApi'
 
@@ -14,29 +15,53 @@ const SQUAD_SORTS = [
   { key: 'assists', label: 'Mais assistências' },
   { key: 'rating', label: 'Melhor nota' },
   { key: 'motm', label: 'Mais MOTM' },
+  { key: 'winRate', label: 'Melhor aproveitamento' },
+  { key: 'proOverall', label: 'Maior overall' },
   { key: 'name', label: 'Nome A–Z' },
 ]
 
-function statNumber(player, key) {
-  const v = player.stats?.[key]
+function statNumber(player, key, view) {
+  const pack = view === 'career' ? player.stats?.career : player.stats
+  const v = pack?.[key] ?? player.stats?.[key]
   const n = Number(v)
   return Number.isFinite(n) ? n : null
 }
 
-function sortSquad(players, sortKey, sortDir) {
+function sortSquad(players, sortKey, sortDir, view) {
   return [...players].sort((a, b) => {
     if (sortKey === 'name') {
       const cmp = a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' })
       return sortDir === 'asc' ? cmp : -cmp
     }
-    const av = statNumber(a, sortKey)
-    const bv = statNumber(b, sortKey)
+    const av = statNumber(a, sortKey, view)
+    const bv = statNumber(b, sortKey, view)
     if (av == null && bv == null) return a.name.localeCompare(b.name, 'pt-BR')
     if (av == null) return 1
     if (bv == null) return -1
     if (av !== bv) return sortDir === 'asc' ? av - bv : bv - av
     return a.name.localeCompare(b.name, 'pt-BR')
   })
+}
+
+function fmt(n, digits) {
+  if (n == null || n === '' || Number.isNaN(Number(n))) return '—'
+  const v = Number(n)
+  return digits != null ? v.toFixed(digits) : String(v)
+}
+
+function timeAgoLabel(ago) {
+  if (!ago) return ''
+  const n = ago.number
+  const unit = {
+    seconds: 's',
+    minutes: 'min',
+    hours: 'h',
+    days: 'd',
+    weeks: 'sem',
+    months: 'mês',
+    years: 'a',
+  }[ago.unit] || ago.unit
+  return `${n}${unit}`
 }
 
 export default function Estatisticas({ store }) {
@@ -48,6 +73,25 @@ export default function Estatisticas({ store }) {
   const [loading, setLoading] = useState(false)
   const [sortKey, setSortKey] = useState('goals')
   const [sortDir, setSortDir] = useState('desc')
+  const [view, setView] = useState('club')
+
+  const ea = store.ea || {}
+  const overall = ea.overall
+  const withStats = store.players.filter((p) => p.stats)
+
+  const rankedPlayers = useMemo(
+    () => sortSquad(store.players, sortKey, sortDir, view),
+    [store.players, sortKey, sortDir, view],
+  )
+
+  function applySort(key) {
+    if (key === sortKey) {
+      setSortDir((d) => (d === 'desc' ? 'asc' : 'desc'))
+      return
+    }
+    setSortKey(key)
+    setSortDir(key === 'name' ? 'asc' : 'desc')
+  }
 
   async function buscar() {
     setLoading(true)
@@ -71,27 +115,36 @@ export default function Estatisticas({ store }) {
     }
   }
 
-  async function importar(clubId, clubName) {
+  async function importar(clubId, clubName, extra = {}) {
     setLoading(true)
     setError('')
-    setStatus(`Importando elenco do clube ${clubId}…`)
+    setStatus(`Importando dados do clube ${clubId}…`)
     try {
-      let payload = await getMembersStats(clubId, platform)
-      let members = normalizeMembers(payload)
-      if (!members.length) {
-        payload = await getMembersCareer(clubId, platform)
-        members = normalizeMembers(payload)
-      }
+      const bundle = await loadClubBundle(clubId, platform)
       store.setClub({
-        name: clubName || query,
+        name: clubName || extra.name || query,
         clubId: String(clubId),
         platform,
+        currentDivision: extra.currentDivision ?? null,
       })
-      store.upsertFromEa(members)
+      store.upsertFromEa(bundle.members, {
+        club: { currentDivision: extra.currentDivision ?? store.club.currentDivision },
+        ea: {
+          overall: bundle.overall,
+          info: bundle.info,
+          playoffs: bundle.playoffs,
+          matches: bundle.matches,
+          positionCount: bundle.positionCount,
+        },
+      })
+      const bits = []
+      if (bundle.members.length) bits.push(`${bundle.members.length} jogadores`)
+      if (bundle.matches.length) bits.push(`${bundle.matches.length} jogos`)
+      if (bundle.playoffs.length) bits.push(`${bundle.playoffs.length} temporadas de playoff`)
       setStatus(
-        members.length
-          ? `${members.length} jogadores sincronizados da EA.`
-          : 'Clube encontrado, mas a lista de membros veio vazia. Cadastre o elenco manualmente.',
+        bits.length
+          ? `Sincronizado: ${bits.join(', ')}.`
+          : 'Clube encontrado, mas a EA não devolveu números. Cadastre o elenco manualmente.',
       )
     } catch (e) {
       setError(e.message)
@@ -102,33 +155,12 @@ export default function Estatisticas({ store }) {
 
   async function syncSaved() {
     if (!store.club.clubId) return
-    await importar(store.club.clubId, store.club.name)
+    await importar(store.club.clubId, store.club.name, {
+      currentDivision: store.club.currentDivision,
+    })
   }
 
-  const withStats = store.players.filter((p) => p.stats)
-
-  const rankedPlayers = useMemo(
-    () => sortSquad(store.players, sortKey, sortDir),
-    [store.players, sortKey, sortDir],
-  )
-
-  function applySort(key) {
-    if (key === sortKey) {
-      setSortDir((d) => (d === 'desc' ? 'asc' : 'desc'))
-      return
-    }
-    setSortKey(key)
-    setSortDir(key === 'name' ? 'asc' : 'desc')
-  }
-
-  const sortHint =
-    sortKey === 'name'
-      ? sortDir === 'asc'
-        ? 'A–Z'
-        : 'Z–A'
-      : sortDir === 'desc'
-        ? 'maior → menor'
-        : 'menor → maior'
+  const pack = (p) => (view === 'career' && p.stats?.career ? p.stats.career : p.stats)
 
   return (
     <>
@@ -136,34 +168,59 @@ export default function Estatisticas({ store }) {
         <div>
           <h2>Estatísticas EA FC 26</h2>
           <p>
-            A API oficial de Community (FUTBIN/FUT.GG) é restrita. Este painel usa a API pública de
-            Pro Clubs da EA (`proclubs.ea.com`) via proxy local.
+            Painel puxa a API pública de Pro Clubs: clube, elenco, carreira, jogos da liga e
+            histórico de playoff.
           </p>
         </div>
       </div>
 
-      <div className="kpi-row">
+      <div className="kpi-row kpi-row-6">
         <div className="kpi">
-          <span>Elenco</span>
-          <b>{store.players.length}</b>
+          <span>Skill rating</span>
+          <b>{overall ? fmt(overall.skillRating) : '—'}</b>
         </div>
         <div className="kpi">
-          <span>Com stats EA</span>
-          <b>{withStats.length}</b>
+          <span>V — E — D</span>
+          <b style={{ fontSize: 18 }}>
+            {overall ? `${overall.wins}-${overall.ties}-${overall.losses}` : '—'}
+          </b>
         </div>
         <div className="kpi">
-          <span>Gols (soma)</span>
-          <b>{withStats.reduce((a, p) => a + (p.stats?.goals || 0), 0)}</b>
+          <span>Divisão atual</span>
+          <b>{store.club.currentDivision || '—'}</b>
         </div>
         <div className="kpi">
-          <span>Último sync</span>
-          <b style={{ fontSize: 13 }}>
-            {store.club.lastSync
-              ? new Date(store.club.lastSync).toLocaleString('pt-BR')
+          <span>Melhor divisão</span>
+          <b>{overall ? fmt(overall.bestDivision) : '—'}</b>
+        </div>
+        <div className="kpi">
+          <span>Gols / sofridos</span>
+          <b style={{ fontSize: 18 }}>
+            {overall ? `${overall.goals}/${overall.goalsAgainst}` : '—'}
+          </b>
+        </div>
+        <div className="kpi">
+          <span>Sequência</span>
+          <b style={{ fontSize: 16 }}>
+            {overall
+              ? `${overall.winStreak} V · ${overall.unbeatenStreak} s/ derrota`
               : '—'}
           </b>
         </div>
       </div>
+
+      {overall?.form?.length ? (
+        <div className="form-strip">
+          <span>Últimos resultados</span>
+          <div className="form-dots">
+            {overall.form.map((r, i) => (
+              <i key={i} className={`form-dot ${r.toLowerCase()}`}>
+                {r}
+              </i>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       <div className="grid-2">
         <section className="card">
@@ -177,8 +234,7 @@ export default function Estatisticas({ store }) {
               <label>Plataforma</label>
               <select value={platform} onChange={(e) => setPlatform(e.target.value)}>
                 <option value="common-gen5">PS5 / Xbox Series / PC</option>
-                <option value="ps4">PS4</option>
-                <option value="xboxone">Xbox One</option>
+                <option value="common-gen4">PS4 / Xbox One</option>
                 <option value="nx">Switch</option>
               </select>
             </div>
@@ -210,16 +266,21 @@ export default function Estatisticas({ store }) {
             {results.map((r, i) => {
               const id = pickClubId(r)
               const name = pickClubName(r)
+              const div = pickCurrentDivision(r)
               return (
                 <article className="player-card" key={`${id}-${i}`}>
                   <div>
                     <b>{name}</b>
-                    <small>ID {id || 'desconhecido'}</small>
+                    <small>
+                      ID {id || 'desconhecido'}
+                      {div ? ` · Divisão ${div}` : ''}
+                      {r.skillRating ? ` · SR ${r.skillRating}` : ''}
+                    </small>
                   </div>
                   <button
                     className="btn"
                     disabled={!id || loading}
-                    onClick={() => importar(id, name)}
+                    onClick={() => importar(id, name, { currentDivision: div })}
                   >
                     Importar
                   </button>
@@ -230,125 +291,226 @@ export default function Estatisticas({ store }) {
         </section>
 
         <section className="card">
-          <h3>Números do elenco</h3>
-          <div className="stats-filters">
-            <span className="stats-filters-label">Ordenar por</span>
-            {SQUAD_SORTS.map((opt) => (
-              <button
-                key={opt.key}
-                type="button"
-                className={`filter-chip${sortKey === opt.key ? ' active' : ''}`}
-                onClick={() => applySort(opt.key)}
-              >
-                {opt.label}
-                {sortKey === opt.key ? (sortDir === 'desc' ? ' ↓' : ' ↑') : ''}
-              </button>
-            ))}
-          </div>
-          <p className="stats-sort-hint">
-            {rankedPlayers.length
-              ? `Lista: ${SQUAD_SORTS.find((s) => s.key === sortKey)?.label} (${sortHint}). Clique de novo para inverter.`
-              : 'Sem jogadores para ordenar.'}
-          </p>
-          <table className="stats-table">
-            <thead>
-              <tr>
-                <th>
-                  <button
-                    type="button"
-                    className={`th-sort${sortKey === 'name' ? ' active' : ''}`}
-                    onClick={() => applySort('name')}
-                  >
-                    Jogador
-                  </button>
-                </th>
-                <th>
-                  <button
-                    type="button"
-                    className={`th-sort num${sortKey === 'games' ? ' active' : ''}`}
-                    onClick={() => applySort('games')}
-                  >
-                    J
-                  </button>
-                </th>
-                <th>
-                  <button
-                    type="button"
-                    className={`th-sort num${sortKey === 'goals' ? ' active' : ''}`}
-                    onClick={() => applySort('goals')}
-                  >
-                    G
-                  </button>
-                </th>
-                <th>
-                  <button
-                    type="button"
-                    className={`th-sort num${sortKey === 'assists' ? ' active' : ''}`}
-                    onClick={() => applySort('assists')}
-                  >
-                    A
-                  </button>
-                </th>
-                <th>
-                  <button
-                    type="button"
-                    className={`th-sort num${sortKey === 'rating' ? ' active' : ''}`}
-                    onClick={() => applySort('rating')}
-                  >
-                    Nota
-                  </button>
-                </th>
-                <th>
-                  <button
-                    type="button"
-                    className={`th-sort num${sortKey === 'motm' ? ' active' : ''}`}
-                    onClick={() => applySort('motm')}
-                  >
-                    MOTM
-                  </button>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {rankedPlayers.map((p, i) => (
-                <tr key={p.id} className={i === 0 && rankedPlayers.length > 1 ? 'rank-top' : ''}>
-                  <td>
-                    <div className="player-rank">
-                      <span className="rank-index">{i + 1}</span>
-                      <div>
-                        {p.name}
-                        <div>
-                          <small>{p.psn}</small>
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className={sortKey === 'games' ? 'sorted-cell' : ''}>
-                    {p.stats?.games ?? '—'}
-                  </td>
-                  <td className={sortKey === 'goals' ? 'sorted-cell' : ''}>
-                    {p.stats?.goals ?? '—'}
-                  </td>
-                  <td className={sortKey === 'assists' ? 'sorted-cell' : ''}>
-                    {p.stats?.assists ?? '—'}
-                  </td>
-                  <td className={sortKey === 'rating' ? 'sorted-cell' : ''}>
-                    {p.stats?.rating ? Number(p.stats.rating).toFixed(2) : '—'}
-                  </td>
-                  <td className={sortKey === 'motm' ? 'sorted-cell' : ''}>
-                    {p.stats?.motm ?? '—'}
-                  </td>
-                </tr>
+          <h3>Clube</h3>
+          {overall ? (
+            <dl className="club-facts">
+              <div>
+                <dt>Jogos (geral)</dt>
+                <dd>{overall.games}</dd>
+              </div>
+              <div>
+                <dt>Jogos de liga</dt>
+                <dd>{overall.leagueGames}</dd>
+              </div>
+              <div>
+                <dt>Jogos de playoff</dt>
+                <dd>{overall.playoffGames}</dd>
+              </div>
+              <div>
+                <dt>Aproveitamento</dt>
+                <dd>
+                  {overall.games
+                    ? `${Math.round((overall.wins / overall.games) * 100)}%`
+                    : '—'}
+                </dd>
+              </div>
+              <div>
+                <dt>Acessos</dt>
+                <dd>{overall.promotions}</dd>
+              </div>
+              <div>
+                <dt>Quedas</dt>
+                <dd>{overall.relegations}</dd>
+              </div>
+              <div>
+                <dt>Reputação</dt>
+                <dd>{overall.reputation}</dd>
+              </div>
+              <div>
+                <dt>Estádio</dt>
+                <dd>{ea.info?.stadium || '—'}</dd>
+              </div>
+              <div>
+                <dt>Último sync</dt>
+                <dd>
+                  {store.club.lastSync
+                    ? new Date(store.club.lastSync).toLocaleString('pt-BR')
+                    : '—'}
+                </dd>
+              </div>
+            </dl>
+          ) : (
+            <div className="notice">Importe o clube para ver o retrato da temporada.</div>
+          )}
+          {ea.positionCount ? (
+            <div className="pos-count">
+              {Object.entries(ea.positionCount).map(([k, v]) => (
+                <span key={k}>
+                  {POS_LINE_LABEL[k] || k}: <b>{v}</b>
+                </span>
               ))}
-            </tbody>
-          </table>
-          {store.players.length === 0 && (
-            <div className="notice" style={{ marginTop: 10 }}>
-              Sem jogadores. Importe da EA ou cadastre na aba Elenco.
             </div>
+          ) : null}
+        </section>
+      </div>
+
+      <div className="grid-2" style={{ marginTop: 18 }}>
+        <section className="card">
+          <h3>Últimos jogos</h3>
+          {ea.matches?.length ? (
+            <div className="match-list">
+              {ea.matches.map((m) => (
+                <article key={m.id} className={`match-row ${m.result.toLowerCase()}`}>
+                  <span className={`match-res ${m.result.toLowerCase()}`}>{m.result || '—'}</span>
+                  <div>
+                    <b>
+                      {m.usGoals} x {m.themGoals} {m.opponent}
+                    </b>
+                    <small>
+                      {MATCH_TYPE_LABEL[m.type] || m.type}
+                      {m.timeAgo ? ` · ${timeAgoLabel(m.timeAgo)}` : ''}
+                    </small>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="notice">Nenhum jogo recente na API. Sincronize o clube.</div>
+          )}
+        </section>
+
+        <section className="card">
+          <h3>Playoffs por temporada</h3>
+          {ea.playoffs?.length ? (
+            <table className="stats-table">
+              <thead>
+                <tr>
+                  <th>Temporada</th>
+                  <th>Melhor divisão</th>
+                  <th>Grupo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ea.playoffs.map((p) => (
+                  <tr key={p.seasonId}>
+                    <td>{p.seasonName || p.seasonId}</td>
+                    <td>{p.bestDivision}</td>
+                    <td>{p.bestFinishGroup}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="notice">Sem histórico de playoff na EA.</div>
           )}
         </section>
       </div>
+
+      <section className="card" style={{ marginTop: 18 }}>
+        <h3>Números do elenco</h3>
+        <div className="stats-filters">
+          <span className="stats-filters-label">Visão</span>
+          <button
+            type="button"
+            className={`filter-chip${view === 'club' ? ' active' : ''}`}
+            onClick={() => setView('club')}
+          >
+            No clube
+          </button>
+          <button
+            type="button"
+            className={`filter-chip${view === 'career' ? ' active' : ''}`}
+            onClick={() => setView('career')}
+          >
+            Carreira
+          </button>
+          <span className="stats-filters-label">Ordenar por</span>
+          {SQUAD_SORTS.map((opt) => (
+            <button
+              key={opt.key}
+              type="button"
+              className={`filter-chip${sortKey === opt.key ? ' active' : ''}`}
+              onClick={() => applySort(opt.key)}
+            >
+              {opt.label}
+              {sortKey === opt.key ? (sortDir === 'desc' ? ' ↓' : ' ↑') : ''}
+            </button>
+          ))}
+        </div>
+        <div className="table-scroll">
+          <table className="stats-table">
+            <thead>
+              <tr>
+                <th>Jogador</th>
+                <th>Linha</th>
+                {view === 'club' ? <th>OVR</th> : null}
+                <th>J</th>
+                {view === 'club' ? <th>V%</th> : null}
+                <th>G</th>
+                <th>A</th>
+                <th>Nota</th>
+                <th>MOTM</th>
+                {view === 'club' ? (
+                  <>
+                    <th>Passe%</th>
+                    <th>Chute%</th>
+                    <th>Des.</th>
+                    <th>Verm</th>
+                    <th>CS</th>
+                  </>
+                ) : null}
+              </tr>
+            </thead>
+            <tbody>
+              {rankedPlayers.map((p, i) => {
+                const s = pack(p) || {}
+                return (
+                  <tr key={p.id} className={i === 0 && rankedPlayers.length > 1 ? 'rank-top' : ''}>
+                    <td>
+                      <div className="player-rank">
+                        <span className="rank-index">{i + 1}</span>
+                        <div>
+                          {p.name}
+                          <div>
+                            <small>{p.psn}</small>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>{POS_LINE_LABEL[p.stats?.favoritePosition] || p.stats?.favoritePosition || '—'}</td>
+                    {view === 'club' ? <td>{fmt(p.stats?.proOverall)}</td> : null}
+                    <td>{fmt(s.games)}</td>
+                    {view === 'club' ? <td>{s.winRate != null ? `${s.winRate}%` : '—'}</td> : null}
+                    <td>{fmt(s.goals)}</td>
+                    <td>{fmt(s.assists)}</td>
+                    <td>{s.rating ? Number(s.rating).toFixed(2) : '—'}</td>
+                    <td>{fmt(s.motm)}</td>
+                    {view === 'club' ? (
+                      <>
+                        <td>{p.stats?.passSuccess != null ? `${p.stats.passSuccess}%` : '—'}</td>
+                        <td>{p.stats?.shotSuccess != null ? `${p.stats.shotSuccess}%` : '—'}</td>
+                        <td>{fmt(p.stats?.tackles)}</td>
+                        <td>{fmt(p.stats?.redCards)}</td>
+                        <td>
+                          {fmt((p.stats?.cleanSheetsDef || 0) + (p.stats?.cleanSheetsGK || 0))}
+                        </td>
+                      </>
+                    ) : null}
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+        {store.players.length === 0 && (
+          <div className="notice" style={{ marginTop: 10 }}>
+            Sem jogadores. Importe da EA ou cadastre na aba Elenco.
+          </div>
+        )}
+        <p className="stats-sort-hint">
+          {withStats.length} com números da EA. Visão {view === 'club' ? 'no clube' : 'de carreira'}.
+        </p>
+      </section>
     </>
   )
 }

@@ -9,6 +9,14 @@ const empty = () => ({
     clubId: '',
     platform: 'common-gen5',
     lastSync: null,
+    currentDivision: null,
+  },
+  ea: {
+    overall: null,
+    info: null,
+    playoffs: [],
+    matches: [],
+    positionCount: null,
   },
 })
 
@@ -16,7 +24,14 @@ export function loadState() {
   try {
     const raw = localStorage.getItem(KEY)
     if (!raw) return empty()
-    return { ...empty(), ...JSON.parse(raw) }
+    const parsed = JSON.parse(raw)
+    const base = empty()
+    return {
+      ...base,
+      ...parsed,
+      club: { ...base.club, ...parsed.club },
+      ea: { ...base.ea, ...parsed.ea },
+    }
   } catch {
     return empty()
   }
