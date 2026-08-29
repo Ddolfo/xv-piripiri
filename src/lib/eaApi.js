@@ -1,6 +1,6 @@
 const EA_HOST =
   typeof window !== 'undefined' && window.location.hostname.endsWith('github.io')
-    ? 'https://xv-piripiri.necessary-cobra.workers.dev'
+    ? 'https://xv-piripiri.resisted-lycra.workers.dev'
     : ''
 
 const BASE = `${EA_HOST}/ea/api/fc`
