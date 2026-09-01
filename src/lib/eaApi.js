@@ -473,7 +473,6 @@ function playerSaves(line) {
 }
 
 function normalizeMatchPlayer(line, playerId) {
-  const events = parseMatchEvents(line)
   const passes = num(line?.passesmade)
   const passAttempts = num(line?.passattempts)
   const tackles = num(line?.tacklesmade)
@@ -511,8 +510,6 @@ function normalizeMatchPlayer(line, playerId) {
       direction: num(line?.goodDirectionSaves),
     },
     redCards: num(line?.redcards),
-    fouls: events[30] || 0,
-    foulsWon: events[31] || 0,
     minutes: Math.round(secondsPlayed / 60),
     secondsPlayed,
     idle: num(line?.realtimeidle),
@@ -567,8 +564,6 @@ function normalizeMatchSide(clubId, clubs, players, aggregate) {
     motm: num(agg.mom),
     goalsConceded: num(agg.goalsconceded),
     secondsPlayed: num(agg.secondsPlayed || agg.gameTime),
-    fouls: roster.reduce((a, p) => a + (p.fouls || 0), 0),
-    foulsWon: roster.reduce((a, p) => a + (p.foulsWon || 0), 0),
     avgRating: rated.length
       ? rated.reduce((a, p) => a + p.rating, 0) / rated.length
       : roster.length && num(agg.rating)
@@ -772,26 +767,6 @@ function diffStats(career, club) {
   }
 }
 
-function parseMatchEvents(line) {
-  const raw = [
-    line?.match_event_aggregate_0,
-    line?.match_event_aggregate_1,
-    line?.match_event_aggregate_2,
-    line?.match_event_aggregate_3,
-  ]
-    .filter(Boolean)
-    .join(',')
-  const map = {}
-  String(raw)
-    .split(',')
-    .filter(Boolean)
-    .forEach((part) => {
-      const [k, v] = part.split(':')
-      if (k) map[Number(k)] = num(v)
-    })
-  return map
-}
-
 function playerFromMatches(payload, clubId, playerName, type) {
   const list = Array.isArray(payload) ? payload : []
   const us = String(clubId)
@@ -890,8 +865,6 @@ export async function loadPlayerDossier(playerName, clubId, clubName, platform =
     passes,
     passAttempts,
     passPct: passAttempts ? Math.round((passes / passAttempts) * 100) : null,
-    fouls: matches.reduce((a, m) => a + (m.fouls || 0), 0),
-    foulsWon: matches.reduce((a, m) => a + (m.foulsWon || 0), 0),
     redCards: matches.reduce((a, m) => a + (m.redCards || 0), 0),
     rating: rated.length ? rated.reduce((a, m) => a + m.rating, 0) / rated.length : 0,
   }

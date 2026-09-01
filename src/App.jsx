@@ -63,8 +63,10 @@ export default function App() {
         booting={booting}
       />
       <main className="main">
-        {tab === 'stats' && <Estatisticas store={store} />}
-        {tab === 'escalacao' && <Escalacao store={store} />}
+        <div className="page-wrap">
+          {tab === 'stats' && <Estatisticas store={store} />}
+          {tab === 'escalacao' && <Escalacao store={store} />}
+        </div>
       </main>
     </div>
   )

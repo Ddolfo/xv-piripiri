@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { MATCH_TYPE_LABEL, POS_LINE_LABEL } from '../lib/eaApi'
+import { LOGO_SRC } from '../lib/brand'
 import PlayerMark from './PlayerMark'
 
 function fmt(n, digits) {
@@ -33,46 +34,98 @@ function resultLabel(code) {
   return 'Sem resultado'
 }
 
-function passLine(side) {
-  if (!side?.passAttempts) return fmt(side?.passes)
-  return `${fmt(side.passes)}/${fmt(side.passAttempts)}`
+function clubInitials(name) {
+  const parts = String(name || '')
+    .replace(/[_-]+/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase()
+  return String(name || 'ADV').slice(0, 3).toUpperCase()
 }
 
-function Stat({ label, value, hint }) {
+function possessionPct(side) {
+  const raw = side?.possession ?? side?.possessionPct ?? side?.ballPossession
+  const n = Number(raw)
+  return Number.isFinite(n) && n > 0 ? n : null
+}
+
+function PossessionDisk({ usPct, themPct }) {
+  if (usPct == null || themPct == null) return null
+  const us = Math.max(0, Math.min(100, Number(usPct)))
+  const them = Math.max(0, Math.min(100, Number(themPct)))
+  const deg = (us / 100) * 360
   return (
-    <div className="stat-box">
-      <span className="stat-box-label">{label}</span>
-      <b className="stat-box-value">{value}</b>
-      {hint ? <small className="stat-box-hint">{hint}</small> : null}
+    <div className="posse-disk">
+      <div
+        className="posse-ring"
+        style={{
+          background: `conic-gradient(#ffd200 0deg ${deg}deg, #f4f4f6 ${deg}deg 360deg)`,
+        }}
+        aria-label={`Posse de bola: XV ${Math.round(us)} por cento, rival ${Math.round(them)} por cento`}
+      >
+        <div className="posse-hole">
+          <b>{Math.round(us)}%</b>
+          <span>XV</span>
+        </div>
+      </div>
+      <div className="posse-legend">
+        <span>
+          <i className="gold" /> XV {Math.round(us)}%
+        </span>
+        <span>
+          <i className="white" /> Rival {Math.round(them)}%
+        </span>
+      </div>
     </div>
   )
 }
 
-function Group({ title, children }) {
+function HexBadge({ crest, initials, label, kit }) {
   return (
-    <section className="stat-group">
-      <h4>{title}</h4>
-      <div className="stat-group-grid">{children}</div>
-    </section>
+    <div className="fim-club">
+      <div
+        className={`fim-crest${crest ? '' : ' rival'}`}
+        style={!crest && kit?.[0] ? { background: kit[0] } : undefined}
+      >
+        {crest ? <img src={crest} alt={label} /> : <em>{initials}</em>}
+      </div>
+      <small>{label}</small>
+    </div>
   )
 }
 
-function VsBar({ label, us, them, digits }) {
-  const a = Number(us) || 0
-  const b = Number(them) || 0
-  const tot = a + b
-  const pct = tot ? Math.round((a / tot) * 100) : 50
+function MotmFeature({ player, official, kit, onOpen }) {
+  if (!player) return null
+  const clickable = Boolean(onOpen)
+  const Tag = clickable ? 'button' : 'div'
   return (
-    <div className="vs-bar">
-      <div className="vs-bar-top">
-        <b>{fmt(a, digits)}</b>
-        <span>{label}</span>
-        <b>{fmt(b, digits)}</b>
+    <Tag
+      type={clickable ? 'button' : undefined}
+      className={`motm-feature${clickable ? ' clickable' : ''}`}
+      onClick={clickable ? () => onOpen(player.name) : undefined}
+    >
+      <div className="motm-stack" aria-hidden="true">
+        <span className="motm-card" />
+        <span className="motm-card" />
+        <span className="motm-card">
+          <PlayerMark name={player.name} colors={kit} size={52} />
+        </span>
       </div>
-      <div className="vs-bar-track">
-        <i style={{ width: `${pct}%` }} />
+      <div className="motm-copy">
+        <p className="motm-kicker">
+          {official ? 'Melhor em campo' : 'Maior nota'}
+          <span aria-hidden="true"> →</span>
+        </p>
+        <h4>{player.name}</h4>
+        <div className="motm-slashes">
+          <span>/ nota {player.rating ? fmt(player.rating, 2) : '—'}</span>
+          <span>/ {POS_LINE_LABEL[player.position] || player.position || 'linha n/d'}</span>
+          {player.archetype ? <span>/ {player.archetype}</span> : null}
+          {player.goals ? <span>/ {fmt(player.goals)} gol{player.goals === 1 ? '' : 's'}</span> : null}
+        </div>
       </div>
-    </div>
+    </Tag>
   )
 }
 
@@ -123,8 +176,6 @@ function PlayerTable({ side, sortKey, sortDir, onOpenPlayer, kitFallback }) {
             <th>% passe</th>
             <th>Desarmes</th>
             <th>% desarme</th>
-            <th>Faltas</th>
-            <th>Faltas sofridas</th>
             <th>Vermelho</th>
             <th>Defesas</th>
             <th>Gols sofridos</th>
@@ -166,8 +217,6 @@ function PlayerTable({ side, sortKey, sortDir, onOpenPlayer, kitFallback }) {
                 {p.tackleAttempts ? `${fmt(p.tackles)}/${fmt(p.tackleAttempts)}` : fmt(p.tackles)}
               </td>
               <td>{p.tacklePct != null ? `${p.tacklePct}%` : '—'}</td>
-              <td>{fmt(p.fouls)}</td>
-              <td>{fmt(p.foulsWon)}</td>
               <td>{fmt(p.redCards)}</td>
               <td>{p.saves ? fmt(p.saves) : '—'}</td>
               <td>{p.goalsConceded ? fmt(p.goalsConceded) : '—'}</td>
@@ -216,8 +265,26 @@ export default function PartidaPerfil({
 
   const motm = useMemo(() => {
     const all = [...(us?.players || []), ...(them?.players || [])]
-    return all.find((p) => p.motm) || all.slice().sort((a, b) => (b.rating || 0) - (a.rating || 0))[0] || null
+    const official = all.find((p) => p.motm) || null
+    const fallback =
+      all.slice().sort((a, b) => (b.rating || 0) - (a.rating || 0))[0] || null
+    return { player: official || fallback, official: Boolean(official) }
   }, [us, them])
+
+  const usPosse = possessionPct(us)
+  const themPosse = possessionPct(them)
+  const boardRows = [
+    { label: 'Finalizações', us: us?.shots, them: them?.shots },
+    { label: 'Assistências', us: us?.assists, them: them?.assists },
+    { label: 'Passes', us: us?.passAttempts, them: them?.passAttempts },
+    { label: 'Passes completos', us: us?.passes, them: them?.passes },
+    { label: 'Desarmes', us: us?.tackleAttempts, them: them?.tackleAttempts },
+    { label: 'Desarmes certos', us: us?.tackles, them: them?.tackles },
+    { label: 'Defesas', us: us?.saves, them: them?.saves },
+    { label: 'Cartões vermelhos', us: us?.redCards, them: them?.redCards },
+    { label: 'Nota média', us: us?.avgRating, them: them?.avgRating, digits: 2 },
+    { label: 'Jogadores em campo', us: us?.playerCount, them: them?.playerCount },
+  ]
 
   function applySort(key) {
     if (key === sortKey) {
@@ -310,126 +377,50 @@ export default function PartidaPerfil({
             </div>
           ) : (
             <>
-              <div className="match-scoreboard">
-                <div>
-                  <span>{homeName}</span>
-                  <b>{fmt(match.usGoals)}</b>
-                  <small>{fmt(us.playerCount)} em campo</small>
-                </div>
-                <em className={`match-res ${(match.result || '').toLowerCase()}`}>
-                  {match.result || '—'}
-                </em>
-                <div>
-                  <span>{them?.name || match.opponent}</span>
-                  <b>{fmt(match.themGoals)}</b>
-                  <small>{fmt(them?.playerCount)} em campo</small>
-                </div>
-              </div>
-
               {tab === 'resumo' && (
                 <>
-                  <div className="stat-hero stat-hero-4">
-                    <div className="stat-hero-item gold">
-                      <span>Placar</span>
-                      <b>
-                        {fmt(match.usGoals)}–{fmt(match.themGoals)}
-                      </b>
-                      <small>{resultLabel(match.result)}</small>
+                  <section className="fim-board">
+                    <div className="fim-board-grid" aria-hidden="true" />
+                    <p className="fim-kicker">Fim de jogo</p>
+                    <div className="fim-scoreline">
+                      <HexBadge
+                        crest={LOGO_SRC}
+                        label="XV de PiriPiri"
+                      />
+                      <div className="fim-scoreline-mid">
+                        <b className="fim-goals">{fmt(match.usGoals)}</b>
+                        <h3 className="fim-title">Estatísticas da partida</h3>
+                        <b className="fim-goals">{fmt(match.themGoals)}</b>
+                      </div>
+                      <HexBadge
+                        initials={clubInitials(them?.name || match.opponent)}
+                        label={them?.name || match.opponent || 'Adversário'}
+                        kit={them?.kit}
+                      />
                     </div>
-                    <div className="stat-hero-item">
-                      <span>Nota do XV</span>
-                      <b>{us.avgRating ? fmt(us.avgRating, 2) : '—'}</b>
-                      <small>Média 0 a 10</small>
-                    </div>
-                    <div className="stat-hero-item">
-                      <span>Finalizações</span>
-                      <b>{fmt(us.shots)}</b>
-                      <small>Rival {fmt(them?.shots)}</small>
-                    </div>
-                    <div className="stat-hero-item">
-                      <span>Melhor em campo</span>
-                      <b>{motm?.name || '—'}</b>
-                      <small>
-                        {motm?.rating ? `Nota ${fmt(motm.rating, 2)}` : 'Sem MOTM na súmula'}
-                        {motm?.motm ? '' : motm ? ' · maior nota' : ''}
-                      </small>
-                    </div>
-                  </div>
-
-                  <section className="stat-group">
-                    <h4>XV × {them?.name || 'adversário'}</h4>
-                    <div className="vs-list">
-                      <VsBar label="Gols" us={us.goals} them={them?.goals} />
-                      <VsBar label="Finalizações" us={us.shots} them={them?.shots} />
-                      <VsBar label="Assistências" us={us.assists} them={them?.assists} />
-                      <VsBar label="Passes certos" us={us.passes} them={them?.passes} />
-                      <VsBar label="Passes tentados" us={us.passAttempts} them={them?.passAttempts} />
-                      <VsBar label="Desarmes certos" us={us.tackles} them={them?.tackles} />
-                      <VsBar label="Desarmes tentados" us={us.tackleAttempts} them={them?.tackleAttempts} />
-                      <VsBar label="Defesas" us={us.saves} them={them?.saves} />
-                      <VsBar label="Faltas" us={us.fouls} them={them?.fouls} />
-                      <VsBar label="Nota média" us={us.avgRating} them={them?.avgRating} digits={2} />
-                    </div>
-                    <p className="stats-sort-hint" style={{ marginTop: 10 }}>
-                      A barra mostra o volume de cada lado. A EA não publica posse de bola — o
-                      volume de passe é o recorte mais próximo.
+                    <p className="fim-meta">
+                      {resultLabel(match.result)}
+                      {MATCH_TYPE_LABEL[match.type] ? ` · ${MATCH_TYPE_LABEL[match.type]}` : ''}
+                      {match.timeAgo ? ` · ${timeAgoLabel(match.timeAgo)}` : ''}
+                      {match.winnerByDnf ? ' · W.O.' : ''}
                     </p>
+                    <MotmFeature
+                      player={motm.player}
+                      official={motm.official}
+                      kit={us?.kit?.length ? us.kit : kitFallback}
+                      onOpen={onOpenPlayer}
+                    />
+                    <PossessionDisk usPct={usPosse} themPct={themPosse} />
+                    <div className="fim-rows">
+                      {boardRows.map((row) => (
+                        <div key={row.label} className="fim-row">
+                          <b className="us">{fmt(row.us, row.digits)}</b>
+                          <span>{row.label}</span>
+                          <b className="them">{fmt(row.them, row.digits)}</b>
+                        </div>
+                      ))}
+                    </div>
                   </section>
-
-                  <Group title="Números do XV nesta partida">
-                    <Stat label="Gols" value={fmt(us.goals)} hint="Marcados pelo XV" />
-                    <Stat label="Gols sofridos" value={fmt(us.goalsAgainst || them?.goals)} hint="Levados nesta súmula" />
-                    <Stat label="Assistências" value={fmt(us.assists)} />
-                    <Stat label="Finalizações" value={fmt(us.shots)} />
-                    <Stat
-                      label="Passes certos / tentados"
-                      value={passLine(us)}
-                      hint={us.passPct ? `${us.passPct}% de acerto` : ''}
-                    />
-                    <Stat
-                      label="Desarmes certos / tentados"
-                      value={
-                        us.tackleAttempts
-                          ? `${fmt(us.tackles)}/${fmt(us.tackleAttempts)}`
-                          : fmt(us.tackles)
-                      }
-                      hint={us.tacklePct ? `${us.tacklePct}% de acerto` : ''}
-                    />
-                    <Stat label="Defesas" value={fmt(us.saves)} />
-                    <Stat label="Cartões vermelhos" value={fmt(us.redCards)} />
-                    <Stat label="Faltas cometidas" value={fmt(us.fouls)} hint="Evento 30 da súmula da EA" />
-                    <Stat label="Faltas sofridas" value={fmt(us.foulsWon)} hint="Evento 31 da súmula da EA" />
-                    <Stat label="Jogadores em campo" value={fmt(us.playerCount)} />
-                    <Stat
-                      label="Minutos somados"
-                      value={fmt(Math.round((us.secondsPlayed || 0) / 60))}
-                      hint="Soma do tempo de todos os Pros"
-                    />
-                  </Group>
-
-                  <Group title={`Números de ${them?.name || 'adversário'}`}>
-                    <Stat label="Gols" value={fmt(them?.goals)} />
-                    <Stat label="Assistências" value={fmt(them?.assists)} />
-                    <Stat label="Finalizações" value={fmt(them?.shots)} />
-                    <Stat
-                      label="Passes certos / tentados"
-                      value={passLine(them)}
-                      hint={them?.passPct ? `${them.passPct}% de acerto` : ''}
-                    />
-                    <Stat
-                      label="Desarmes certos / tentados"
-                      value={
-                        them?.tackleAttempts
-                          ? `${fmt(them.tackles)}/${fmt(them.tackleAttempts)}`
-                          : fmt(them?.tackles)
-                      }
-                    />
-                    <Stat label="Defesas" value={fmt(them?.saves)} />
-                    <Stat label="Nota média" value={them?.avgRating ? fmt(them.avgRating, 2) : '—'} />
-                    <Stat label="Jogadores em campo" value={fmt(them?.playerCount)} />
-                    <Stat label="Estádio" value={them?.stadium || us.stadium || '—'} />
-                    <Stat label="W.O. do rival" value={them?.winnerByDnf ? 'Sim' : 'Não'} />
-                  </Group>
 
                   {scorers.length ? (
                     <section className="stat-group">
