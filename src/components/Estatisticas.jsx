@@ -14,6 +14,7 @@ import {
   searchClubs,
 } from '../lib/eaApi'
 import JogadorPerfil from './JogadorPerfil'
+import PartidaPerfil from './PartidaPerfil'
 import PlayerMark from './PlayerMark'
 
 const SQUAD_SORTS = [
@@ -163,6 +164,7 @@ export default function Estatisticas({ store }) {
   const [view, setView] = useState('club')
   const [matchFilter, setMatchFilter] = useState('all')
   const [openPlayer, setOpenPlayer] = useState(null)
+  const [openMatch, setOpenMatch] = useState(null)
 
   const ea = store.ea || {}
   const overall = ea.overall
@@ -181,17 +183,8 @@ export default function Estatisticas({ store }) {
 
   const kitColors = info?.kit?.home || []
 
-  const mostPlayed = useMemo(
-    () =>
-      [...store.players]
-        .filter((p) => p.stats)
-        .sort((a, b) => (Number(b.stats?.games) || 0) - (Number(a.stats?.games) || 0))
-        .slice(0, 5),
-    [store.players],
-  )
-
   const rosterByLine = useMemo(() => {
-    const order = ['forward', 'midfielder', 'defender', 'goalkeeper']
+    const order = ['any', 'forward', 'midfielder', 'defender', 'goalkeeper']
     const groups = order.map((key) => ({
       key,
       label: POS_LINE_LABEL[key],
@@ -305,6 +298,26 @@ export default function Estatisticas({ store }) {
         player={openPlayer}
         store={store}
         onClose={() => setOpenPlayer(null)}
+      />
+    )
+  }
+
+  if (openMatch) {
+    return (
+      <PartidaPerfil
+        match={openMatch}
+        matches={ea.matches || []}
+        store={store}
+        onClose={() => setOpenMatch(null)}
+        onSelectMatch={setOpenMatch}
+        onOpenPlayer={(name) => {
+          const hit = store.players.find(
+            (p) =>
+              p.name.trim().toLowerCase() === String(name || '').trim().toLowerCase() ||
+              (p.psn && p.psn.trim().toLowerCase() === String(name || '').trim().toLowerCase()),
+          )
+          if (hit) setOpenPlayer(hit)
+        }}
       />
     )
   }
@@ -486,8 +499,7 @@ export default function Estatisticas({ store }) {
         </section>
       </div>
 
-      <div className="grid-2" style={{ marginTop: 18 }}>
-        <section className="card">
+      <section className="card" style={{ marginTop: 18 }}>
           <h3>Identidade do clube</h3>
           <dl className="club-facts">
             <Fact label="Clube" value={info?.name || store.club.name || '—'} />
@@ -522,53 +534,14 @@ export default function Estatisticas({ store }) {
               é a divisão atual nem o pico da carreira.
             </p>
           ) : null}
-        </section>
-
-        <section className="card">
-          <h3>Quem mais jogou</h3>
-          <p className="card-lead">
-            Top 5 de jogos no clube, em qualquer posição. Clique para abrir a ficha.
-          </p>
-          {mostPlayed.length ? (
-            <ol className="top-played">
-              {mostPlayed.map((p, i) => (
-                <li key={p.id}>
-                  <button type="button" className="top-played-btn" onClick={() => setOpenPlayer(p)}>
-                    <em>{i + 1}</em>
-                    <PlayerMark
-                      name={p.name}
-                      nationId={p.stats?.proNationality}
-                      colors={kitColors}
-                      size={42}
-                    />
-                    <div>
-                      <b>{p.name}</b>
-                      <small>
-                        {POS_LINE_LABEL[p.stats?.favoritePosition] ||
-                          p.stats?.favoritePosition ||
-                          'Linha livre'}
-                        {p.stats?.proOverall ? ` · Pro ${p.stats.proOverall}` : ''}
-                      </small>
-                    </div>
-                    <strong>
-                      {fmt(p.stats?.games)}
-                      <span>jogos</span>
-                    </strong>
-                  </button>
-                </li>
-              ))}
-            </ol>
-          ) : (
-            <div className="notice">Sincronize o clube para ver quem mais jogou.</div>
-          )}
-        </section>
-      </div>
+      </section>
 
       <section className="card" style={{ marginTop: 18 }}>
         <h3>Elenco</h3>
         <p className="card-lead">
           A EA não publica foto do Pro. Cada cartão usa as cores da camisa, as iniciais e a
-          bandeira da nacionalidade do jogador.
+          bandeira. O arquétipo vem das súmulas recentes — a API não entrega AP, PlayStyles nem
+          especialização.
         </p>
         {rosterByLine.length ? (
           rosterByLine.map((group) => (
@@ -597,6 +570,9 @@ export default function Estatisticas({ store }) {
                           POS_LINE_LABEL[p.stats?.favoritePosition] ||
                           '—'}
                       </small>
+                      {p.stats?.build?.lastLabel ? (
+                        <span className="build-tag">{p.stats.build.lastLabel}</span>
+                      ) : null}
                       <span>
                         {fmt(p.stats?.games)} jogos
                         {p.stats?.proOverall ? ` · ${p.stats.proOverall}` : ''}
@@ -613,10 +589,10 @@ export default function Estatisticas({ store }) {
 
       <div className="grid-2" style={{ marginTop: 18 }}>
         <section className="card">
-          <h3>Últimos jogos na API</h3>
+          <h3>Últimos jogos do XV</h3>
           <p className="card-lead">
-            A EA só entrega os 10 mais recentes de cada tipo. Playoff e amistoso vêm vazios se o
-            clube não jogou esses modos agora.
+            Clique numa partida para abrir a súmula completa contra aquele time. A EA só entrega os
+            10 mais recentes de cada tipo.
           </p>
           {recent ? (
             <div className="recent-strip">
@@ -652,7 +628,12 @@ export default function Estatisticas({ store }) {
           {shownMatches.length ? (
             <div className="match-list" style={{ marginTop: 10 }}>
               {shownMatches.map((m) => (
-                <article key={m.id} className={`match-row ${m.result.toLowerCase()}`}>
+                <button
+                  key={m.id}
+                  type="button"
+                  className={`match-row ${m.result.toLowerCase()}`}
+                  onClick={() => setOpenMatch(m)}
+                >
                   <span className={`match-res ${m.result.toLowerCase()}`}>{m.result || '—'}</span>
                   <div>
                     <b>
@@ -670,7 +651,7 @@ export default function Estatisticas({ store }) {
                       {m.motm ? ' · teve MOTM' : ''}
                     </small>
                   </div>
-                </article>
+                </button>
               ))}
             </div>
           ) : (
@@ -751,6 +732,7 @@ export default function Estatisticas({ store }) {
                 <th>Jogador</th>
                 <th>Linha</th>
                 {view === 'club' ? <th>Posição do Pro</th> : null}
+                {view === 'club' ? <th>Arquétipo</th> : null}
                 {view === 'club' ? <th>Nota do Pro</th> : null}
                 <th>Jogos</th>
                 {view === 'club' ? <th>Vitórias</th> : null}
@@ -811,6 +793,21 @@ export default function Estatisticas({ store }) {
                     </td>
                     <td>{POS_LINE_LABEL[p.stats?.favoritePosition] || p.stats?.favoritePosition || '—'}</td>
                     {view === 'club' ? <td>{pos || '—'}</td> : null}
+                    {view === 'club' ? (
+                      <td>
+                        {p.stats?.build?.lastLabel || '—'}
+                        {p.stats?.build?.history?.length > 1 ? (
+                          <div>
+                            <small>
+                              {p.stats.build.history
+                                .filter((h) => h.id !== p.stats.build.lastId)
+                                .map((h) => `${h.label} ${h.games}`)
+                                .join(' · ')}
+                            </small>
+                          </div>
+                        ) : null}
+                      </td>
+                    ) : null}
                     {view === 'club' ? <td>{fmt(p.stats?.proOverall)}</td> : null}
                     <td>{fmt(s.games)}</td>
                     {view === 'club' ? <td>{s.winRate != null ? `${s.winRate}%` : '—'}</td> : null}

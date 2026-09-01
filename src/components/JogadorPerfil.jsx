@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
+  buildHistoryHint,
   loadPlayerDossier,
   MATCH_TYPE_LABEL,
   NATIONS,
@@ -133,6 +134,7 @@ export default function JogadorPerfil({ player, store, onClose }) {
   const assistJogo = perGame(stats.assists, games)
   const passes = passSplit(full ? stats : null)
   const recent = dossier?.recent
+  const build = dossier?.build || player.stats?.build || null
   const canSeeMatches = clubId === 'geral' || selected?.current
 
   return (
@@ -152,7 +154,11 @@ export default function JogadorPerfil({ player, store, onClose }) {
         </div>
         <h3>{player.name}</h3>
         <small className="player-nav-psn">PSN / ID: {player.psn}</small>
-        <p className="player-id-line">{line}{proPos ? ` · ${proPos}` : ''}</p>
+        <p className="player-id-line">
+          {line}
+          {proPos ? ` · ${proPos}` : ''}
+          {build?.lastLabel ? ` · ${build.lastLabel}` : ''}
+        </p>
 
         <p className="player-nav-kicker" style={{ marginTop: 18 }}>
           Escolha a visão
@@ -229,6 +235,15 @@ export default function JogadorPerfil({ player, store, onClose }) {
             <div>
               <span>Posição do Pro</span>
               <b>{proPos || '—'}</b>
+            </div>
+            <div>
+              <span>Arquétipo</span>
+              <b>{build?.lastLabel || '—'}</b>
+              <small>
+                {build
+                  ? buildHistoryHint(build)
+                  : 'Só aparece se ele jogou nas súmulas recentes'}
+              </small>
             </div>
             <div>
               <span>Nota do Pro</span>
@@ -335,6 +350,38 @@ export default function JogadorPerfil({ player, store, onClose }) {
                 />
               </Group>
 
+              {canSeeMatches ? (
+                <Group title="Arquétipo nas súmulas recentes">
+                  <Stat
+                    label="Último visto"
+                    value={build?.lastLabel || '—'}
+                    hint={
+                      build?.lastLine
+                        ? `${build.lastLine} no player builder do FC 26`
+                        : 'A EA só manda o arquétipo por partida'
+                    }
+                  />
+                  <Stat
+                    label="Partidas com esse arquétipo"
+                    value={
+                      build
+                        ? fmt(build.history?.find((h) => h.id === build.lastId)?.games)
+                        : '—'
+                    }
+                    hint={build ? `Em ${fmt(build.games)} súmulas carregadas` : ''}
+                  />
+                  <Stat
+                    label="Arquétipos usados"
+                    value={build ? fmt(build.history.length) : '—'}
+                    hint={
+                      build?.history?.length
+                        ? build.history.map((h) => `${h.label} ${h.games}j`).join(' · ')
+                        : 'A API pública não entrega AP, PlayStyles nem especialização'
+                    }
+                  />
+                </Group>
+              ) : null}
+
               <Group title="Defesa e disciplina">
                 <Stat
                   label="Jogos sem sofrer gol (linha)"
@@ -428,6 +475,7 @@ export default function JogadorPerfil({ player, store, onClose }) {
                         </div>
                         <small>
                           {MATCH_TYPE_LABEL[m.type] || m.type}
+                          {m.archetype ? ` · ${m.archetype}` : ''}
                           {m.motm ? ' · MOTM' : ''}
                           {m.timeAgo ? ` · ${timeAgoLabel(m.timeAgo)}` : ''}
                         </small>
@@ -465,6 +513,7 @@ export default function JogadorPerfil({ player, store, onClose }) {
                               {resultLabel(m.result)} · {MATCH_TYPE_LABEL[m.type] || m.type}
                               {m.timeAgo ? ` · ${timeAgoLabel(m.timeAgo)}` : ''}
                               {m.position ? ` · ${POS_LINE_LABEL[m.position] || m.position}` : ''}
+                              {m.archetype ? ` · ${m.archetype}` : ''}
                               {m.minutes ? ` · ${m.minutes} min` : ''}
                               {m.winnerByDnf ? ' · W.O.' : ''}
                             </small>
@@ -523,6 +572,7 @@ export default function JogadorPerfil({ player, store, onClose }) {
                             />
                             <MatchFact label="Melhor em campo" value={m.motm ? 'Sim' : 'Não'} />
                             <MatchFact label="Minutos em campo" value={fmt(m.minutes)} />
+                            <MatchFact label="Arquétipo" value={m.archetype || '—'} />
                             {m.cleanSheet ? (
                               <MatchFact label="Jogo sem sofrer gol" value="Sim" />
                             ) : null}

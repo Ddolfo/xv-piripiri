@@ -8,6 +8,7 @@ import {
   loadClubBundle,
   pickClubId,
   pickClubName,
+  pickCurrentDivision,
   searchClubs,
   XV_CLUB,
 } from './lib/eaApi'

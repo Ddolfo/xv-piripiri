@@ -128,6 +128,7 @@ export function useStore() {
           favoritePosition: m.favoritePosition,
           lastTenGoals: m.lastTenGoals || [],
           lastTenSum: m.lastTenSum || 0,
+          build: m.build || extra.ea?.builds?.[(m.name || '').trim().toLowerCase()] || null,
           career: m.career || null,
           source: 'EA Pro Clubs',
         }

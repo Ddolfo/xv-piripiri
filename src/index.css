@@ -597,49 +597,10 @@ h1, h2, h3, .brand { font-family: Nunito, Segoe UI, sans-serif; font-weight: 800
   border-radius: 2px;
   border: 1px solid rgba(0, 0, 0, 0.35);
 }
-.top-played {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.top-played-btn {
-  width: 100%;
-  display: grid;
-  grid-template-columns: 22px 42px 1fr auto;
-  align-items: center;
-  gap: 10px;
-  text-align: left;
-  border: 1px solid var(--line-soft);
-  background: #101217;
-  color: inherit;
-  border-radius: 12px;
-  padding: 8px 10px;
-}
-.top-played-btn:hover { border-color: var(--gold); }
-.top-played-btn em {
-  font-style: normal;
-  font-weight: 800;
+.roster-card .build-tag {
   color: var(--gold);
-  font-size: 13px;
-}
-.top-played-btn b { display: block; }
-.top-played-btn small { color: var(--muted); font-size: 11px; }
-.top-played-btn strong {
-  text-align: right;
-  font-size: 18px;
-  line-height: 1;
-}
-.top-played-btn strong span {
-  display: block;
-  margin-top: 3px;
-  color: var(--muted);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.6px;
-  text-transform: uppercase;
 }
 .roster-line { margin-top: 16px; }
 .roster-line h4 {
@@ -674,6 +635,7 @@ h1, h2, h3, .brand { font-family: Nunito, Segoe UI, sans-serif; font-weight: 800
 }
 .roster-card small,
 .roster-card span { color: var(--muted); font-size: 11px; }
+.roster-card .build-tag { color: var(--gold); }
 .player-nav-mark { margin: 4px 0 10px; }
 .rank-index {
   display: inline-block;
@@ -836,9 +798,92 @@ h1, h2, h3, .brand { font-family: Nunito, Segoe UI, sans-serif; font-weight: 800
   padding: 8px 10px;
   border-radius: 12px;
   background: #171a20;
+  border: 1px solid transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  width: 100%;
+  cursor: pointer;
 }
+button.match-row:hover { border-color: var(--gold); }
 .match-row b { display: block; font-size: 14px; }
 .match-row small { color: var(--muted); font-size: 11px; }
+.match-scoreboard {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 16px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255, 210, 0, 0.1), #101217);
+  border: 1px solid rgba(255, 210, 0, 0.28);
+}
+.match-scoreboard > div { min-width: 0; }
+.match-scoreboard span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+.match-scoreboard > div:last-child { text-align: right; }
+.match-scoreboard b {
+  display: block;
+  margin: 4px 0 2px;
+  font-size: 42px;
+  line-height: 1;
+  letter-spacing: -1px;
+}
+.match-scoreboard small { color: var(--muted); font-size: 12px; }
+.match-scoreboard em.match-res {
+  width: 36px;
+  height: 36px;
+  font-style: normal;
+  font-size: 14px;
+}
+.vs-list { display: flex; flex-direction: column; gap: 10px; }
+.vs-bar-top {
+  display: grid;
+  grid-template-columns: 72px 1fr 72px;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.vs-bar-top span { text-align: center; color: var(--muted); }
+.vs-bar-top b:last-child { text-align: right; }
+.vs-bar-track {
+  height: 6px;
+  border-radius: 99px;
+  background: #2a2e38;
+  overflow: hidden;
+  margin-top: 4px;
+}
+.vs-bar-track i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #ffe14a, #c9a000);
+  border-radius: 99px;
+}
+.match-scorers {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.match-scorers li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #101217;
+  border: 1px solid var(--line-soft);
+}
+.match-scorers b { font-size: 14px; }
+.match-scorers span { color: var(--muted); font-size: 12px; text-align: right; }
 .match-res {
   display: grid;
   place-items: center;
@@ -991,7 +1036,7 @@ h1, h2, h3, .brand { font-family: Nunito, Segoe UI, sans-serif; font-weight: 800
 
 .player-id-card {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 10px;
   margin-bottom: 16px;
 }
@@ -1308,12 +1353,11 @@ h1, h2, h3, .brand { font-family: Nunito, Segoe UI, sans-serif; font-weight: 800
   .stat-box { min-height: 0; padding: 12px; }
   .stat-box-value { font-size: 22px; }
   .match-card-stats { grid-template-columns: 1fr; }
-  .top-played-btn {
-    grid-template-columns: 18px 36px 1fr auto;
-    gap: 8px;
-    min-height: 52px;
-  }
   .roster-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .match-scoreboard b { font-size: 28px; }
+  button.match-row { min-height: 52px; }
+  .match-scorers li { flex-direction: column; align-items: flex-start; gap: 4px; }
+  .match-scorers span { text-align: left; }
   .table-scroll {
     margin-inline: -6px;
     padding-inline: 6px;

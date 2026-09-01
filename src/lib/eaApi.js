@@ -191,12 +191,20 @@ export async function loadClubBundle(clubId, platform = 'common-gen5', clubName 
   const members = normalizeMembers(membersPayload)
   const career = normalizeCareer(careerPayload)
   const careerByName = Object.fromEntries(career.map((m) => [m.name.toLowerCase(), m]))
+  const builds = collectBuilds([league, playoff, friendly], id)
   const merged = members.map((m) => ({
     ...m,
     career: careerByName[m.name.toLowerCase()] || null,
+    build: builds[(m.name || '').trim().toLowerCase()] || null,
   }))
   if (!merged.length) {
-    career.forEach((c) => merged.push({ ...c, career: c }))
+    career.forEach((c) =>
+      merged.push({
+        ...c,
+        career: c,
+        build: builds[(c.name || '').trim().toLowerCase()] || null,
+      }),
+    )
   }
 
   const info = normalizeInfo(infoPayload, id)
@@ -215,6 +223,7 @@ export async function loadClubBundle(clubId, platform = 'common-gen5', clubName 
     recent: summarizeMatches(matches),
     season: normalizeBoard(pickFromSearch(seasonList, id)),
     board: normalizeBoard(pickFromSearch(boardList, id)),
+    builds,
     positionCount: membersPayload?.positionCount || careerPayload?.positionCount || null,
   }
 }
@@ -228,8 +237,84 @@ export function bundleToEa(bundle) {
     recent: bundle.recent,
     season: bundle.season,
     board: bundle.board,
+    builds: bundle.builds || {},
     positionCount: bundle.positionCount,
   }
+}
+
+function collectBuilds(payloads, clubId) {
+  const us = String(clubId)
+  const byName = {}
+  payloads.forEach((payload) => {
+    const list = Array.isArray(payload) ? payload : []
+    list.forEach((m) => {
+      const roster = m.players?.[us] || {}
+      const ts = num(m.timestamp)
+      Object.values(roster).forEach((p) => {
+        const name = fixEaText(p.playername || p.name || '').trim()
+        const key = name.toLowerCase()
+        const id = num(p.archetypeid)
+        if (!key || !id) return
+        const row = byName[key] || { name, lastId: 0, lastTs: 0, counts: {} }
+        row.counts[id] = (row.counts[id] || 0) + 1
+        if (ts >= row.lastTs) {
+          row.lastTs = ts
+          row.lastId = id
+        }
+        byName[key] = row
+      })
+    })
+  })
+  const out = {}
+  Object.entries(byName).forEach(([key, row]) => {
+    out[key] = packBuild(row.lastId, row.counts)
+  })
+  return out
+}
+
+function packBuild(lastId, counts) {
+  const history = Object.entries(counts)
+    .map(([id, games]) => ({
+      id: Number(id),
+      label: archetypeLabel(id),
+      line: ARCHETYPE_LINE[Number(id)] || '',
+      games,
+    }))
+    .sort((a, b) => b.games - a.games || a.id - b.id)
+  const games = history.reduce((a, h) => a + h.games, 0)
+  return {
+    lastId,
+    lastLabel: archetypeLabel(lastId),
+    lastLine: ARCHETYPE_LINE[lastId] || '',
+    games,
+    history,
+  }
+}
+
+export function summarizePlayerBuild(matches) {
+  const counts = {}
+  let lastId = 0
+  let lastTs = 0
+  ;(matches || []).forEach((m) => {
+    const id = Number(m.archetypeId)
+    if (!id) return
+    counts[id] = (counts[id] || 0) + 1
+    if ((m.timestamp || 0) >= lastTs) {
+      lastTs = m.timestamp || 0
+      lastId = id
+    }
+  })
+  if (!lastId) return null
+  return packBuild(lastId, counts)
+}
+
+export function buildHistoryHint(build) {
+  if (!build?.lastLabel) return ''
+  const others = (build.history || []).filter((h) => h.id !== build.lastId)
+  if (!others.length) {
+    return `${build.games} partida${build.games === 1 ? '' : 's'} recente${build.games === 1 ? '' : 's'}`
+  }
+  return `Última vista · também ${others.map((h) => `${h.label} (${h.games})`).join(', ')}`
 }
 
 export function normalizeMembers(payload) {
@@ -375,41 +460,160 @@ function normalizePlayoffs(payload) {
   })
 }
 
+function playerSaves(line) {
+  return (
+    num(line?.saves) +
+    num(line?.ballDiveSaves) +
+    num(line?.crossSaves) +
+    num(line?.parrySaves) +
+    num(line?.punchSaves) +
+    num(line?.reflexSaves) +
+    num(line?.goodDirectionSaves)
+  )
+}
+
+function normalizeMatchPlayer(line, playerId) {
+  const events = parseMatchEvents(line)
+  const passes = num(line?.passesmade)
+  const passAttempts = num(line?.passattempts)
+  const tackles = num(line?.tacklesmade)
+  const tackleAttempts = num(line?.tackleattempts)
+  const goals = num(line?.goals)
+  const assists = num(line?.assists)
+  const saves = playerSaves(line)
+  const secondsPlayed = num(line?.secondsPlayed || line?.gameTime)
+  return {
+    id: String(playerId || line?.playername || ''),
+    name: fixEaText(line?.playername || line?.name || ''),
+    position: line?.pos || '',
+    archetypeId: num(line?.archetypeid),
+    archetype: archetypeLabel(line?.archetypeid),
+    goals,
+    assists,
+    involvement: goals + assists,
+    shots: num(line?.shots),
+    rating: num(line?.rating),
+    motm: num(line?.mom),
+    passes,
+    passAttempts,
+    passPct: passAttempts ? Math.round((passes / passAttempts) * 100) : null,
+    tackles,
+    tackleAttempts,
+    tacklePct: tackleAttempts ? Math.round((tackles / tackleAttempts) * 100) : null,
+    saves,
+    saveBreakdown: {
+      total: num(line?.saves),
+      dive: num(line?.ballDiveSaves),
+      cross: num(line?.crossSaves),
+      parry: num(line?.parrySaves),
+      punch: num(line?.punchSaves),
+      reflex: num(line?.reflexSaves),
+      direction: num(line?.goodDirectionSaves),
+    },
+    redCards: num(line?.redcards),
+    fouls: events[30] || 0,
+    foulsWon: events[31] || 0,
+    minutes: Math.round(secondsPlayed / 60),
+    secondsPlayed,
+    idle: num(line?.realtimeidle),
+    cleanSheet:
+      num(line?.cleansheetsany) === 1 ||
+      num(line?.cleansheetsdef) === 1 ||
+      num(line?.cleansheetsgk) === 1,
+    goalsConceded: num(line?.goalsconceded),
+    isKeeper: String(line?.pos || '').toLowerCase() === 'goalkeeper' || saves > 0,
+  }
+}
+
+function kitFromDetails(details) {
+  const kit = details?.customKit || {}
+  return [kit.kitColor1, kit.kitColor2, kit.kitColor3, kit.kitColor4].map(eaColor).filter(Boolean)
+}
+
+function normalizeMatchSide(clubId, clubs, players, aggregate) {
+  const id = String(clubId || '')
+  const club = clubs?.[id] || {}
+  const details = club.details || {}
+  const agg = aggregate?.[id] || {}
+  const rosterObj = players?.[id] || {}
+  const roster = Object.entries(rosterObj)
+    .map(([pid, p]) => normalizeMatchPlayer(p, pid))
+    .sort((a, b) => (b.rating || 0) - (a.rating || 0) || a.name.localeCompare(b.name, 'pt-BR'))
+  const rated = roster.filter((p) => p.rating)
+  const passes = num(agg.passesmade)
+  const passAttempts = num(agg.passattempts)
+  const tackles = num(agg.tacklesmade)
+  const tackleAttempts = num(agg.tackleattempts)
+  return {
+    clubId: id,
+    name: fixEaText(details.name || '') || id,
+    stadium: fixEaText(details.customKit?.stadName || ''),
+    kit: kitFromDetails(details),
+    goals: num(club.goals ?? club.score),
+    goalsAgainst: num(club.goalsAgainst),
+    result: matchResult(club),
+    winnerByDnf: num(club.winnerByDnf) === 1,
+    seasonId: club.season_id != null ? String(club.season_id) : '',
+    shots: num(agg.shots),
+    assists: num(agg.assists),
+    passes,
+    passAttempts,
+    passPct: passAttempts ? Math.round((passes / passAttempts) * 100) : 0,
+    tackles,
+    tackleAttempts,
+    tacklePct: tackleAttempts ? Math.round((tackles / tackleAttempts) * 100) : 0,
+    saves: playerSaves(agg),
+    redCards: num(agg.redcards),
+    motm: num(agg.mom),
+    goalsConceded: num(agg.goalsconceded),
+    secondsPlayed: num(agg.secondsPlayed || agg.gameTime),
+    fouls: roster.reduce((a, p) => a + (p.fouls || 0), 0),
+    foulsWon: roster.reduce((a, p) => a + (p.foulsWon || 0), 0),
+    avgRating: rated.length
+      ? rated.reduce((a, p) => a + p.rating, 0) / rated.length
+      : roster.length && num(agg.rating)
+        ? num(agg.rating) / roster.length
+        : 0,
+    players: roster,
+    playerCount: roster.length,
+  }
+}
+
 function normalizeMatches(payload, clubId, type) {
   const list = Array.isArray(payload) ? payload : []
   const us = String(clubId)
   return list.map((m) => {
     const clubs = m.clubs || {}
-    const ours = clubs[us] || {}
     const oppId = Object.keys(clubs).find((k) => k !== us) || ''
-    const theirs = clubs[oppId] || {}
-    const result = matchResult(ours)
-    const agg = m.aggregate?.[us] || {}
-    const roster = m.players?.[us] || {}
-    const playerCount = Object.keys(roster).length
+    const ours = normalizeMatchSide(us, clubs, m.players, m.aggregate)
+    const theirs = oppId
+      ? normalizeMatchSide(oppId, clubs, m.players, m.aggregate)
+      : normalizeMatchSide('', {}, {}, {})
     return {
       id: String(m.matchId || `${type}-${m.timestamp}`),
       type,
       timestamp: num(m.timestamp),
       timeAgo: m.timeAgo || null,
-      usGoals: num(ours.goals ?? ours.score),
-      themGoals: num(theirs.goals ?? theirs.score),
-      opponent: fixEaText(theirs.details?.name || '') || oppId || 'Adversário',
+      usGoals: ours.goals,
+      themGoals: theirs.goals,
+      opponent: theirs.name || 'Adversário',
       opponentId: oppId,
-      result,
-      winnerByDnf: num(ours.winnerByDnf) === 1,
-      seasonId: ours.season_id != null ? String(ours.season_id) : '',
-      shots: num(agg.shots),
-      assists: num(agg.assists),
-      passAttempts: num(agg.passattempts),
-      passes: num(agg.passesmade),
-      tackles: num(agg.tacklesmade),
-      tackleAttempts: num(agg.tackleattempts),
-      saves: num(agg.saves),
-      redCards: num(agg.redcards),
-      motm: num(agg.mom),
-      playersOnPitch: playerCount,
-      avgRating: playerCount && num(agg.rating) ? num(agg.rating) / playerCount : 0,
+      result: ours.result,
+      winnerByDnf: ours.winnerByDnf,
+      seasonId: ours.seasonId,
+      shots: ours.shots,
+      assists: ours.assists,
+      passAttempts: ours.passAttempts,
+      passes: ours.passes,
+      tackles: ours.tackles,
+      tackleAttempts: ours.tackleAttempts,
+      saves: ours.saves,
+      redCards: ours.redCards,
+      motm: ours.motm,
+      playersOnPitch: ours.playerCount,
+      avgRating: ours.avgRating,
+      us: ours,
+      them: theirs,
     }
   })
 }
@@ -598,27 +802,13 @@ function playerFromMatches(payload, clubId, playerName, type) {
       const oppId = Object.keys(clubs).find((k) => k !== us) || ''
       const theirs = clubs[oppId] || {}
       const roster = m.players?.[us] || {}
-      const line = Object.values(roster).find((p) =>
+      const entry = Object.entries(roster).find(([, p]) =>
         namesMatch(p.playername || p.name, playerName),
       )
-      if (!line) return null
-      const events = parseMatchEvents(line)
-      const passes = num(line.passesmade)
-      const passAttempts = num(line.passattempts)
-      const tackles = num(line.tacklesmade)
-      const tackleAttempts = num(line.tackleattempts)
-      const goals = num(line.goals)
-      const assists = num(line.assists)
-      const shots = num(line.shots)
-      const saves =
-        num(line.saves) +
-        num(line.ballDiveSaves) +
-        num(line.crossSaves) +
-        num(line.parrySaves) +
-        num(line.punchSaves) +
-        num(line.reflexSaves) +
-        num(line.goodDirectionSaves)
+      if (!entry) return null
+      const line = normalizeMatchPlayer(entry[1], entry[0])
       return {
+        ...line,
         id: String(m.matchId || `${type}-${m.timestamp}`),
         type,
         timestamp: num(m.timestamp),
@@ -628,27 +818,6 @@ function playerFromMatches(payload, clubId, playerName, type) {
         themGoals: num(theirs.goals ?? theirs.score),
         result: matchResult(ours),
         winnerByDnf: num(ours.winnerByDnf) === 1,
-        goals,
-        assists,
-        involvement: goals + assists,
-        rating: num(line.rating),
-        motm: num(line.mom),
-        passes,
-        passAttempts,
-        passPct: passAttempts ? Math.round((passes / passAttempts) * 100) : null,
-        shots,
-        tackles,
-        tackleAttempts,
-        tacklePct: tackleAttempts ? Math.round((tackles / tackleAttempts) * 100) : null,
-        saves,
-        redCards: num(line.redcards),
-        fouls: events[30] || 0,
-        foulsWon: events[31] || 0,
-        minutes: Math.round(num(line.secondsPlayed) / 60),
-        position: line.pos || '',
-        cleanSheet: num(line.cleansheetsany) === 1 || num(line.cleansheetsdef) === 1 || num(line.cleansheetsgk) === 1,
-        goalsConceded: num(line.goalsconceded),
-        isKeeper: String(line.pos || '').toLowerCase() === 'goalkeeper' || saves > 0,
       }
     })
     .filter(Boolean)
@@ -733,6 +902,7 @@ export async function loadPlayerDossier(playerName, clubId, clubName, platform =
     club,
     career,
     recent,
+    build: summarizePlayerBuild(matches),
     raw: club?.raw || null,
   }
 }
@@ -768,10 +938,50 @@ export const MATCH_TYPE_LABEL = {
 }
 
 export const POS_LINE_LABEL = {
+  any: 'QQ',
   forward: 'Ataque',
   midfielder: 'Meio',
   defender: 'Defesa',
   goalkeeper: 'Goleiro',
+}
+
+/** FC 26 Clubs: 13 arquétipos, na ordem do player builder. */
+export const ARCHETYPE_LABEL = {
+  1: 'Shot Stopper',
+  2: 'Sweeper Keeper',
+  3: 'Progressor',
+  4: 'Boss',
+  5: 'Engine',
+  6: 'Marauder',
+  7: 'Recycler',
+  8: 'Maestro',
+  9: 'Creator',
+  10: 'Spark',
+  11: 'Magician',
+  12: 'Finisher',
+  13: 'Target',
+}
+
+export const ARCHETYPE_LINE = {
+  1: 'Goleiro',
+  2: 'Goleiro',
+  3: 'Defesa',
+  4: 'Defesa',
+  5: 'Defesa',
+  6: 'Defesa',
+  7: 'Meio',
+  8: 'Meio',
+  9: 'Meio',
+  10: 'Meio',
+  11: 'Ataque',
+  12: 'Ataque',
+  13: 'Ataque',
+}
+
+export function archetypeLabel(id) {
+  const n = Number(id)
+  if (!Number.isFinite(n) || n <= 0) return ''
+  return ARCHETYPE_LABEL[n] || `Arquétipo ${n}`
 }
 
 /**
