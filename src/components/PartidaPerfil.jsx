@@ -44,38 +44,55 @@ function clubInitials(name) {
   return String(name || 'ADV').slice(0, 3).toUpperCase()
 }
 
-function possessionPct(side) {
-  const raw = side?.possession ?? side?.possessionPct ?? side?.ballPossession
-  const n = Number(raw)
-  return Number.isFinite(n) && n > 0 ? n : null
+function formatClock(seconds) {
+  const s = Math.max(0, Number(seconds) || 0)
+  if (!s) return ''
+  const m = Math.floor(s / 60)
+  const r = s % 60
+  return `${m}:${String(r).padStart(2, '0')}`
 }
 
-function PossessionDisk({ usPct, themPct }) {
-  if (usPct == null || themPct == null) return null
-  const us = Math.max(0, Math.min(100, Number(usPct)))
-  const them = Math.max(0, Math.min(100, Number(themPct)))
-  const deg = (us / 100) * 360
+function StatRing({ value, label, tone }) {
+  if (value == null || !Number.isFinite(Number(value))) return null
+  const pct = Math.max(0, Math.min(100, Number(value)))
+  const r = 34
+  const c = 2 * Math.PI * r
+  const dash = (pct / 100) * c
   return (
-    <div className="posse-disk">
-      <div
-        className="posse-ring"
-        style={{
-          background: `conic-gradient(#ffd200 0deg ${deg}deg, #f4f4f6 ${deg}deg 360deg)`,
-        }}
-        aria-label={`Posse de bola: XV ${Math.round(us)} por cento, rival ${Math.round(them)} por cento`}
-      >
-        <div className="posse-hole">
-          <b>{Math.round(us)}%</b>
-          <span>XV</span>
-        </div>
+    <div className={`stat-ring ${tone || ''}`}>
+      <svg viewBox="0 0 80 80" aria-hidden="true">
+        <circle cx="40" cy="40" r={r} className="stat-ring-bg" />
+        <circle
+          cx="40"
+          cy="40"
+          r={r}
+          className="stat-ring-fg"
+          strokeDasharray={`${dash} ${c}`}
+          transform="rotate(-90 40 40)"
+        />
+      </svg>
+      <b>{Math.round(pct)}%</b>
+      <span>{label}</span>
+    </div>
+  )
+}
+
+function CompareRow({ label, us, them, digits }) {
+  const a = Number(us) || 0
+  const b = Number(them) || 0
+  const tot = a + b
+  const usW = tot ? Math.round((a / tot) * 100) : 0
+  const themW = tot ? Math.round((b / tot) * 100) : 0
+  return (
+    <div className="ea-row">
+      <div className="ea-row-side us">
+        <b>{fmt(us, digits)}</b>
+        <i style={{ width: `${usW}%` }} />
       </div>
-      <div className="posse-legend">
-        <span>
-          <i className="gold" /> XV {Math.round(us)}%
-        </span>
-        <span>
-          <i className="white" /> Rival {Math.round(them)}%
-        </span>
+      <span>{label}</span>
+      <div className="ea-row-side them">
+        <i style={{ width: `${themW}%` }} />
+        <b>{fmt(them, digits)}</b>
       </div>
     </div>
   )
@@ -271,20 +288,24 @@ export default function PartidaPerfil({
     return { player: official || fallback, official: Boolean(official) }
   }, [us, them])
 
-  const usPosse = possessionPct(us)
-  const themPosse = possessionPct(them)
   const boardRows = [
     { label: 'Finalizações', us: us?.shots, them: them?.shots },
-    { label: 'Assistências', us: us?.assists, them: them?.assists },
     { label: 'Passes', us: us?.passAttempts, them: them?.passAttempts },
-    { label: 'Passes completos', us: us?.passes, them: them?.passes },
-    { label: 'Desarmes', us: us?.tackleAttempts, them: them?.tackleAttempts },
+    { label: 'Divididas', us: us?.tackleAttempts, them: them?.tackleAttempts },
     { label: 'Desarmes certos', us: us?.tackles, them: them?.tackles },
-    { label: 'Defesas', us: us?.saves, them: them?.saves },
+    { label: 'Assistências', us: us?.assists, them: them?.assists },
+    { label: 'Defesas', us: us?.saves, them: them?.saves, hideIfZero: true },
+    { label: 'Faltas cometidas', us: us?.foulsCommitted, them: them?.foulsCommitted },
+    { label: 'Impedimentos', us: us?.offsides, them: them?.offsides },
+    { label: 'Escanteios', us: us?.corners, them: them?.corners },
+    { label: 'Faltas', us: us?.fouls, them: them?.fouls },
+    { label: 'Cartões amarelos', us: us?.yellows, them: them?.yellows },
     { label: 'Cartões vermelhos', us: us?.redCards, them: them?.redCards },
-    { label: 'Nota média', us: us?.avgRating, them: them?.avgRating, digits: 2 },
-    { label: 'Jogadores em campo', us: us?.playerCount, them: them?.playerCount },
-  ]
+  ].filter((row) => {
+    if (!row.hideIfZero) return true
+    return (Number(row.us) || 0) > 0 || (Number(row.them) || 0) > 0
+  })
+  const clock = formatClock(Math.max(us?.clock || 0, them?.clock || 0))
 
   function applySort(key) {
     if (key === sortKey) {
@@ -379,47 +400,52 @@ export default function PartidaPerfil({
             <>
               {tab === 'resumo' && (
                 <>
-                  <section className="fim-board">
-                    <div className="fim-board-grid" aria-hidden="true" />
-                    <p className="fim-kicker">Fim de jogo</p>
-                    <div className="fim-scoreline">
-                      <HexBadge
-                        crest={LOGO_SRC}
-                        label="XV de PiriPiri"
-                      />
-                      <div className="fim-scoreline-mid">
-                        <b className="fim-goals">{fmt(match.usGoals)}</b>
-                        <h3 className="fim-title">Estatísticas da partida</h3>
-                        <b className="fim-goals">{fmt(match.themGoals)}</b>
+                  <section className="ea-sheet">
+                    <header className="ea-sheet-head">
+                      <HexBadge crest={LOGO_SRC} label="XV de PiriPiri" />
+                      <div className="ea-sheet-score">
+                        <b>{fmt(match.usGoals)}</b>
+                        <em>:</em>
+                        <b>{fmt(match.themGoals)}</b>
+                        {clock ? <small>{clock}</small> : null}
                       </div>
                       <HexBadge
                         initials={clubInitials(them?.name || match.opponent)}
                         label={them?.name || match.opponent || 'Adversário'}
                         kit={them?.kit}
                       />
-                    </div>
-                    <p className="fim-meta">
-                      {resultLabel(match.result)}
+                    </header>
+                    <p className="ea-sheet-meta">
+                      Resumo
                       {MATCH_TYPE_LABEL[match.type] ? ` · ${MATCH_TYPE_LABEL[match.type]}` : ''}
                       {match.timeAgo ? ` · ${timeAgoLabel(match.timeAgo)}` : ''}
                       {match.winnerByDnf ? ' · W.O.' : ''}
                     </p>
+                    <div className="ea-sheet-body">
+                      <div className="ea-rings">
+                        <StatRing value={us?.passPct} label="Precisão nos passes" tone="home" />
+                      </div>
+                      <div className="ea-compare">
+                        {boardRows.map((row) => (
+                          <CompareRow
+                            key={row.label}
+                            label={row.label}
+                            us={row.us}
+                            them={row.them}
+                            digits={row.digits}
+                          />
+                        ))}
+                      </div>
+                      <div className="ea-rings">
+                        <StatRing value={them?.passPct} label="Precisão nos passes" tone="away" />
+                      </div>
+                    </div>
                     <MotmFeature
                       player={motm.player}
                       official={motm.official}
                       kit={us?.kit?.length ? us.kit : kitFallback}
                       onOpen={onOpenPlayer}
                     />
-                    <PossessionDisk usPct={usPosse} themPct={themPosse} />
-                    <div className="fim-rows">
-                      {boardRows.map((row) => (
-                        <div key={row.label} className="fim-row">
-                          <b className="us">{fmt(row.us, row.digits)}</b>
-                          <span>{row.label}</span>
-                          <b className="them">{fmt(row.them, row.digits)}</b>
-                        </div>
-                      ))}
-                    </div>
                   </section>
 
                   {scorers.length ? (

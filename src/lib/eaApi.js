@@ -472,6 +472,37 @@ function playerSaves(line) {
   )
 }
 
+function parseMatchEvents(line) {
+  const raw = [
+    line?.match_event_aggregate_0,
+    line?.match_event_aggregate_1,
+    line?.match_event_aggregate_2,
+    line?.match_event_aggregate_3,
+  ]
+    .filter(Boolean)
+    .join(',')
+  const map = {}
+  String(raw)
+    .split(',')
+    .filter(Boolean)
+    .forEach((part) => {
+      const [k, v] = part.split(':')
+      if (k) map[Number(k)] = num(v)
+    })
+  return map
+}
+
+function sumRosterEvents(rosterObj) {
+  const tot = {}
+  Object.values(rosterObj || {}).forEach((p) => {
+    const ev = parseMatchEvents(p)
+    Object.entries(ev).forEach(([k, v]) => {
+      tot[k] = (tot[k] || 0) + v
+    })
+  })
+  return tot
+}
+
 function normalizeMatchPlayer(line, playerId) {
   const passes = num(line?.passesmade)
   const passAttempts = num(line?.passattempts)
@@ -541,6 +572,8 @@ function normalizeMatchSide(clubId, clubs, players, aggregate) {
   const passAttempts = num(agg.passattempts)
   const tackles = num(agg.tacklesmade)
   const tackleAttempts = num(agg.tackleattempts)
+  const ev = sumRosterEvents(rosterObj)
+  const clock = roster.reduce((a, p) => Math.max(a, p.secondsPlayed || 0), 0)
   return {
     clubId: id,
     name: fixEaText(details.name || '') || id,
@@ -561,9 +594,15 @@ function normalizeMatchSide(clubId, clubs, players, aggregate) {
     tacklePct: tackleAttempts ? Math.round((tackles / tackleAttempts) * 100) : 0,
     saves: playerSaves(agg),
     redCards: num(agg.redcards),
+    yellows: ev[3] || 0,
+    foulsCommitted: ev[108] || 0,
+    fouls: ev[5] || 0,
+    offsides: ev[105] || 0,
+    corners: ev[36] || 0,
     motm: num(agg.mom),
     goalsConceded: num(agg.goalsconceded),
     secondsPlayed: num(agg.secondsPlayed || agg.gameTime),
+    clock,
     avgRating: rated.length
       ? rated.reduce((a, p) => a + p.rating, 0) / rated.length
       : roster.length && num(agg.rating)
