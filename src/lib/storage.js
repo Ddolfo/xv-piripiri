@@ -23,6 +23,7 @@ const empty = () => ({
     board: null,
     positionCount: null,
   },
+  history: [],
 })
 
 export function loadState() {
@@ -41,6 +42,7 @@ export function loadState() {
         clubId: parsed.club?.clubId || base.club.clubId,
       },
       ea: fixEaTree({ ...base.ea, ...parsed.ea }),
+      history: Array.isArray(parsed.history) ? parsed.history : [],
       players: (parsed.players || []).map((p) => ({
         ...p,
         name: fixEaText(p.name || ''),

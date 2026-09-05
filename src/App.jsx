@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import Escalacao from './components/Escalacao'
 import Estatisticas from './components/Estatisticas'
 import Header from './components/Header'
+import Rivais from './components/Rivais'
 import { useStore } from './hooks/useStore'
 import {
   bundleToEa,
@@ -12,6 +13,7 @@ import {
   searchClubs,
   XV_CLUB,
 } from './lib/eaApi'
+import { loadSeedHistory } from './lib/rivals'
 
 export default function App() {
   const store = useStore()
@@ -22,6 +24,8 @@ export default function App() {
     let live = true
     ;(async () => {
       try {
+        const seed = await loadSeedHistory()
+        if (live) store.mergeMatchHistory([...(seed || []), ...(store.ea?.matches || [])])
         const list = await searchClubs(XV_CLUB.name, XV_CLUB.platform)
         const hit =
           (list || []).find((c) => String(pickClubId(c)) === XV_CLUB.clubId) || list?.[0]
@@ -65,6 +69,7 @@ export default function App() {
       <main className="main">
         <div className="page-wrap">
           {tab === 'stats' && <Estatisticas store={store} />}
+          {tab === 'rivais' && <Rivais store={store} />}
           {tab === 'escalacao' && <Escalacao store={store} />}
         </div>
       </main>

@@ -1776,3 +1776,82 @@ button.match-row:hover { border-color: var(--gold); }
   .token-pos,
   .token-empty { font-size: 10px; }
 }
+
+.rival-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.rival-card {
+  padding: 16px 16px 14px;
+  border: 1px solid var(--line-soft);
+  background: #101217;
+  min-height: 148px;
+}
+.rival-card.pato {
+  border-color: rgba(255, 210, 0, 0.45);
+  background: linear-gradient(180deg, rgba(255, 210, 0, 0.12), #101217);
+}
+.rival-card.algoz {
+  border-color: rgba(255, 77, 77, 0.35);
+}
+.rival-card-kicker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+  font-family: Oswald, Nunito, sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.rival-card.algoz .rival-card-kicker { color: #ff8a8a; }
+.rival-card b {
+  display: block;
+  font-size: 22px;
+  line-height: 1.15;
+}
+.rival-card p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+.pato-icon {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+}
+.pato-tag,
+.algoz-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+.pato-tag {
+  background: rgba(255, 210, 0, 0.16);
+  color: var(--gold);
+}
+.pato-tag .pato-icon { width: 14px; height: 14px; }
+.algoz-tag {
+  background: rgba(255, 77, 77, 0.14);
+  color: #ff8a8a;
+}
+
+@media (max-width: 1100px) {
+  .rival-kpis { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 720px) {
+  .rival-kpis { grid-template-columns: 1fr; }
+  .rival-card { min-height: 0; }
+}

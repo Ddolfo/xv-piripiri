@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { FORMATIONS } from '../data/formations'
 import { fixEaText, fixEaTree } from '../lib/eaApi'
+import { mergeHistory } from '../lib/rivals'
 import { loadState, saveState, uid } from '../lib/storage'
 
 function healState(s) {
@@ -9,6 +10,7 @@ function healState(s) {
     ...s,
     club: s.club ? { ...s.club, name: fixEaText(s.club.name || '') } : s.club,
     ea: s.ea ? fixEaTree(s.ea) : s.ea,
+    history: Array.isArray(s.history) ? s.history : [],
     players: Array.isArray(s.players)
       ? s.players.map((p) => ({
           ...p,
@@ -162,8 +164,16 @@ export function useStore() {
           ...s.ea,
           ...(extra.ea || {}),
         },
+        history: mergeHistory(s.history, extra.ea?.matches),
       }
     })
+  }, [])
+
+  const mergeMatchHistory = useCallback((matches) => {
+    setState((s) => ({
+      ...s,
+      history: mergeHistory(s.history, matches),
+    }))
   }, [])
 
   const slots = useMemo(
@@ -189,6 +199,7 @@ export function useStore() {
     resetLineup,
     setClub,
     upsertFromEa,
+    mergeMatchHistory,
   }
 }
 
