@@ -1963,3 +1963,87 @@ button.match-row:hover { border-color: var(--gold); }
   .rival-kpis { grid-template-columns: 1fr; }
   .rival-card { min-height: 0; }
 }
+
+.study-insights {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.study-insights p {
+  margin: 0;
+  padding: 12px 14px;
+  border-left: 3px solid var(--gold);
+  background: #101217;
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.45;
+}
+.study-facts {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.study-fact {
+  padding: 14px 12px;
+  border: 1px solid var(--line-soft);
+  background: #101217;
+}
+.study-fact.warn { border-color: rgba(255, 77, 77, 0.4); }
+.study-fact span {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.study-fact b {
+  display: block;
+  margin: 8px 0 4px;
+  font-size: 26px;
+  font-family: Oswald, Nunito, sans-serif;
+  letter-spacing: -0.03em;
+}
+.study-fact small { color: var(--muted); font-size: 11px; }
+.study-people {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.study-person {
+  padding: 14px 12px;
+  border: 1px solid var(--line-soft);
+  background: #0c0d12;
+}
+.study-person span {
+  display: block;
+  color: var(--gold);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.study-person b { display: block; margin: 8px 0 4px; font-size: 18px; }
+.study-person small { color: var(--muted); font-size: 12px; }
+.study-bar {
+  height: 4px;
+  margin-top: 6px;
+  background: #22252c;
+  overflow: hidden;
+}
+.study-bar i {
+  display: block;
+  height: 100%;
+  background: var(--gold);
+}
+.study-bar i.warn { background: var(--danger); }
+tr.study-row-warn td { background: rgba(255, 77, 77, 0.06); }
+
+@media (max-width: 1100px) {
+  .study-facts { grid-template-columns: 1fr 1fr 1fr; }
+  .study-people { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 720px) {
+  .study-facts,
+  .study-people { grid-template-columns: 1fr 1fr; }
+}

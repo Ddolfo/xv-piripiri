@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import Desempenho from './components/Desempenho'
 import Escalacao from './components/Escalacao'
 import Estatisticas from './components/Estatisticas'
 import Header from './components/Header'
@@ -69,6 +70,7 @@ export default function App() {
       <main className="main">
         <div className="page-wrap">
           {tab === 'stats' && <Estatisticas store={store} />}
+          {tab === 'desempenho' && <Desempenho store={store} />}
           {tab === 'rivais' && <Rivais store={store} />}
           {tab === 'escalacao' && <Escalacao store={store} />}
         </div>
