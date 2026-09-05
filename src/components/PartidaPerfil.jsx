@@ -98,7 +98,7 @@ function CompareRow({ label, us, them, digits }) {
   )
 }
 
-function HexBadge({ crest, initials, label, kit }) {
+function HexBadge({ crest, initials, label, kit, count }) {
   return (
     <div className="fim-club">
       <div
@@ -108,7 +108,56 @@ function HexBadge({ crest, initials, label, kit }) {
         {crest ? <img src={crest} alt={label} /> : <em>{initials}</em>}
       </div>
       <small>{label}</small>
+      {count != null ? <em className="fim-count">{fmt(count)} em campo</em> : null}
     </div>
+  )
+}
+
+function DashFact({ label, value, hint }) {
+  return (
+    <div className="dash-fact">
+      <span>{label}</span>
+      <b>{value}</b>
+      {hint ? <small>{hint}</small> : null}
+    </div>
+  )
+}
+
+function SquadCard({ player, kit, onOpen }) {
+  return (
+    <button
+      type="button"
+      className={`dash-player${onOpen ? ' clickable' : ''}`}
+      onClick={() => onOpen?.(player.name)}
+    >
+      <PlayerMark name={player.name} colors={kit} size={40} />
+      <div>
+        <b>{player.name}</b>
+        <small>
+          {POS_LINE_LABEL[player.position] || player.position || '—'}
+          {player.archetype ? ` · ${player.archetype}` : ''}
+          {player.motm ? ' · MOTM' : ''}
+        </small>
+      </div>
+      <div className="dash-player-nums">
+        <span>
+          <em>Nota</em>
+          {player.rating ? fmt(player.rating, 2) : '—'}
+        </span>
+        <span>
+          <em>G</em>
+          {fmt(player.goals)}
+        </span>
+        <span>
+          <em>A</em>
+          {fmt(player.assists)}
+        </span>
+        <span>
+          <em>Ch</em>
+          {fmt(player.shots)}
+        </span>
+      </div>
+    </button>
   )
 }
 
@@ -289,11 +338,13 @@ export default function PartidaPerfil({
   }, [us, them])
 
   const boardRows = [
+    { label: 'Jogadores em campo', us: us?.playerCount, them: them?.playerCount },
     { label: 'Finalizações', us: us?.shots, them: them?.shots },
+    { label: 'Assistências', us: us?.assists, them: them?.assists },
     { label: 'Passes', us: us?.passAttempts, them: them?.passAttempts },
+    { label: 'Passes completos', us: us?.passes, them: them?.passes },
     { label: 'Divididas', us: us?.tackleAttempts, them: them?.tackleAttempts },
     { label: 'Desarmes certos', us: us?.tackles, them: them?.tackles },
-    { label: 'Assistências', us: us?.assists, them: them?.assists },
     { label: 'Defesas', us: us?.saves, them: them?.saves, hideIfZero: true },
     { label: 'Faltas cometidas', us: us?.foulsCommitted, them: them?.foulsCommitted },
     { label: 'Impedimentos', us: us?.offsides, them: them?.offsides },
@@ -301,11 +352,14 @@ export default function PartidaPerfil({
     { label: 'Faltas', us: us?.fouls, them: them?.fouls },
     { label: 'Cartões amarelos', us: us?.yellows, them: them?.yellows },
     { label: 'Cartões vermelhos', us: us?.redCards, them: them?.redCards },
+    { label: 'Nota média', us: us?.avgRating, them: them?.avgRating, digits: 2 },
   ].filter((row) => {
     if (!row.hideIfZero) return true
     return (Number(row.us) || 0) > 0 || (Number(row.them) || 0) > 0
   })
   const clock = formatClock(Math.max(us?.clock || 0, them?.clock || 0))
+  const usKit = us?.kit?.length ? us.kit : kitFallback
+  const themKit = them?.kit?.length ? them.kit : []
 
   function applySort(key) {
     if (key === sortKey) {
@@ -399,10 +453,14 @@ export default function PartidaPerfil({
           ) : (
             <>
               {tab === 'resumo' && (
-                <>
+                <div className="match-dash">
                   <section className="ea-sheet">
                     <header className="ea-sheet-head">
-                      <HexBadge crest={LOGO_SRC} label="XV de PiriPiri" />
+                      <HexBadge
+                        crest={LOGO_SRC}
+                        label="XV de PiriPiri"
+                        count={us?.playerCount}
+                      />
                       <div className="ea-sheet-score">
                         <b>{fmt(match.usGoals)}</b>
                         <em>:</em>
@@ -413,17 +471,48 @@ export default function PartidaPerfil({
                         initials={clubInitials(them?.name || match.opponent)}
                         label={them?.name || match.opponent || 'Adversário'}
                         kit={them?.kit}
+                        count={them?.playerCount}
                       />
                     </header>
                     <p className="ea-sheet-meta">
-                      Resumo
+                      Dashboard da partida
                       {MATCH_TYPE_LABEL[match.type] ? ` · ${MATCH_TYPE_LABEL[match.type]}` : ''}
                       {match.timeAgo ? ` · ${timeAgoLabel(match.timeAgo)}` : ''}
                       {match.winnerByDnf ? ' · W.O.' : ''}
                     </p>
+                    <div className="dash-facts">
+                      <DashFact
+                        label="Jogadores do XV"
+                        value={fmt(us?.playerCount)}
+                        hint="Em campo nesta súmula"
+                      />
+                      <DashFact
+                        label="Jogadores do rival"
+                        value={fmt(them?.playerCount)}
+                        hint="Em campo nesta súmula"
+                      />
+                      <DashFact
+                        label="Nota do XV"
+                        value={us?.avgRating ? fmt(us.avgRating, 2) : '—'}
+                      />
+                      <DashFact
+                        label="Nota do rival"
+                        value={them?.avgRating ? fmt(them.avgRating, 2) : '—'}
+                      />
+                      <DashFact
+                        label="Melhor em campo"
+                        value={motm.player?.name || '—'}
+                        hint={motm.player?.rating ? `Nota ${fmt(motm.player.rating, 2)}` : ''}
+                      />
+                      <DashFact
+                        label="Estádio"
+                        value={us?.stadium || them?.stadium || '—'}
+                      />
+                    </div>
                     <div className="ea-sheet-body">
                       <div className="ea-rings">
                         <StatRing value={us?.passPct} label="Precisão nos passes" tone="home" />
+                        <StatRing value={us?.tacklePct} label="Acerto no desarme" tone="home" />
                       </div>
                       <div className="ea-compare">
                         {boardRows.map((row) => (
@@ -438,14 +527,38 @@ export default function PartidaPerfil({
                       </div>
                       <div className="ea-rings">
                         <StatRing value={them?.passPct} label="Precisão nos passes" tone="away" />
+                        <StatRing value={them?.tacklePct} label="Acerto no desarme" tone="away" />
                       </div>
                     </div>
                     <MotmFeature
                       player={motm.player}
                       official={motm.official}
-                      kit={us?.kit?.length ? us.kit : kitFallback}
+                      kit={usKit}
                       onOpen={onOpenPlayer}
                     />
+                  </section>
+
+                  <section className="dash-squads">
+                    <div>
+                      <h4>
+                        XV de PiriPiri <small>{fmt(us?.playerCount)} em campo</small>
+                      </h4>
+                      <div className="dash-squad-list">
+                        {(us?.players || []).map((p) => (
+                          <SquadCard key={p.id || p.name} player={p} kit={usKit} onOpen={onOpenPlayer} />
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <h4>
+                        {them?.name || match.opponent} <small>{fmt(them?.playerCount)} em campo</small>
+                      </h4>
+                      <div className="dash-squad-list">
+                        {(them?.players || []).map((p) => (
+                          <SquadCard key={p.id || p.name} player={p} kit={themKit} />
+                        ))}
+                      </div>
+                    </div>
                   </section>
 
                   {scorers.length ? (
@@ -487,7 +600,7 @@ export default function PartidaPerfil({
                       quando alguém caiu da sala.
                     </p>
                   ) : null}
-                </>
+                </div>
               )}
 
               {(tab === 'xv' || tab === 'rival') && (
