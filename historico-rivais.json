@@ -1,0 +1,226 @@
+{
+  "clubId": "14693",
+  "updatedAt": "2026-09-05T23:18:41.000Z",
+  "matches": [
+    {
+      "id": "1034878131790045",
+      "type": "leagueMatch",
+      "timestamp": 1788585665,
+      "opponent": "PesUnited",
+      "opponentId": "408398",
+      "usGoals": 2,
+      "themGoals": 6,
+      "result": "D",
+      "winnerByDnf": false
+    },
+    {
+      "id": "1034686829990453",
+      "type": "leagueMatch",
+      "timestamp": 1788584640,
+      "opponent": "Thermas Low Pro",
+      "opponentId": "10764325",
+      "usGoals": 9,
+      "themGoals": 1,
+      "result": "V",
+      "winnerByDnf": false
+    },
+    {
+      "id": "1034826204210432",
+      "type": "leagueMatch",
+      "timestamp": 1788583568,
+      "opponent": "magrelim fc",
+      "opponentId": "7402793",
+      "usGoals": 8,
+      "themGoals": 1,
+      "result": "V",
+      "winnerByDnf": true
+    },
+    {
+      "id": "1034770355250476",
+      "type": "leagueMatch",
+      "timestamp": 1788582453,
+      "opponent": "Pelouro FC",
+      "opponentId": "5182966",
+      "usGoals": 5,
+      "themGoals": 4,
+      "result": "V",
+      "winnerByDnf": false
+    },
+    {
+      "id": "1034582870440300",
+      "type": "leagueMatch",
+      "timestamp": 1788580856,
+      "opponent": "40tena Coronga",
+      "opponentId": "258656",
+      "usGoals": 0,
+      "themGoals": 3,
+      "result": "D",
+      "winnerByDnf": false
+    },
+    {
+      "id": "1034600746970204",
+      "type": "leagueMatch",
+      "timestamp": 1788580239,
+      "opponent": "cAvA uMa FaLtA",
+      "opponentId": "182865",
+      "usGoals": 5,
+      "themGoals": 0,
+      "result": "V",
+      "winnerByDnf": true
+    },
+    {
+      "id": "1034676379330066",
+      "type": "leagueMatch",
+      "timestamp": 1788579639,
+      "opponent": "Flamengol 027",
+      "opponentId": "3611502",
+      "usGoals": 3,
+      "themGoals": 3,
+      "result": "E",
+      "winnerByDnf": false
+    },
+    {
+      "id": "1034692208410375",
+      "type": "leagueMatch",
+      "timestamp": 1788578496,
+      "opponent": "Jadverso",
+      "opponentId": "7230567",
+      "usGoals": 6,
+      "themGoals": 1,
+      "result": "V",
+      "winnerByDnf": false
+    },
+    {
+      "id": "1034596436530028",
+      "type": "leagueMatch",
+      "timestamp": 1788576943,
+      "opponent": "Showmens FC",
+      "opponentId": "72583",
+      "usGoals": 0,
+      "themGoals": 3,
+      "result": "D",
+      "winnerByDnf": false
+    },
+    {
+      "id": "1034638124280294",
+      "type": "leagueMatch",
+      "timestamp": 1788576235,
+      "opponent": "Les Parces FC",
+      "opponentId": "1912009",
+      "usGoals": 6,
+      "themGoals": 8,
+      "result": "D",
+      "winnerByDnf": false
+    },
+    {
+      "id": "1027216097110308",
+      "type": "leagueMatch",
+      "timestamp": 1788300000,
+      "opponent": "Real Autista BR",
+      "opponentId": "",
+      "usGoals": 1,
+      "themGoals": 6,
+      "result": "D",
+      "winnerByDnf": false
+    },
+    {
+      "id": "1027172164260024",
+      "type": "leagueMatch",
+      "timestamp": 1788290000,
+      "opponent": "TADAFILADO",
+      "opponentId": "380916",
+      "usGoals": 3,
+      "themGoals": 2,
+      "result": "V",
+      "winnerByDnf": false
+    },
+    {
+      "id": "1027042672100279",
+      "type": "leagueMatch",
+      "timestamp": 1788280000,
+      "opponent": "TADAFILADO",
+      "opponentId": "380916",
+      "usGoals": 4,
+      "themGoals": 3,
+      "result": "V",
+      "winnerByDnf": false
+    },
+    {
+      "id": "1026940784700472",
+      "type": "leagueMatch",
+      "timestamp": 1788270000,
+      "opponent": "Ameixeira FC",
+      "opponentId": "",
+      "usGoals": 3,
+      "themGoals": 1,
+      "result": "V",
+      "winnerByDnf": false
+    },
+    {
+      "id": "1027026483270085",
+      "type": "leagueMatch",
+      "timestamp": 1788260000,
+      "opponent": "Maskeikos FCC",
+      "opponentId": "",
+      "usGoals": 6,
+      "themGoals": 1,
+      "result": "V",
+      "winnerByDnf": false
+    },
+    {
+      "id": "1026986477940448",
+      "type": "leagueMatch",
+      "timestamp": 1788250000,
+      "opponent": "Leoncio FC",
+      "opponentId": "",
+      "usGoals": 1,
+      "themGoals": 5,
+      "result": "D",
+      "winnerByDnf": false
+    },
+    {
+      "id": "1026974369060074",
+      "type": "leagueMatch",
+      "timestamp": 1788240000,
+      "opponent": "Carrara Taxi FC",
+      "opponentId": "",
+      "usGoals": 4,
+      "themGoals": 3,
+      "result": "V",
+      "winnerByDnf": false
+    },
+    {
+      "id": "1024640331830280",
+      "type": "leagueMatch",
+      "timestamp": 1788100000,
+      "opponent": "AdC Esports III",
+      "opponentId": "",
+      "usGoals": 5,
+      "themGoals": 4,
+      "result": "V",
+      "winnerByDnf": false
+    },
+    {
+      "id": "1024582399040004",
+      "type": "leagueMatch",
+      "timestamp": 1788090000,
+      "opponent": "AdC Esports III",
+      "opponentId": "",
+      "usGoals": 3,
+      "themGoals": 4,
+      "result": "D",
+      "winnerByDnf": false
+    },
+    {
+      "id": "1024640118310132",
+      "type": "leagueMatch",
+      "timestamp": 1788080000,
+      "opponent": "Demo GV",
+      "opponentId": "",
+      "usGoals": 5,
+      "themGoals": 2,
+      "result": "V",
+      "winnerByDnf": false
+    }
+  ]
+}
