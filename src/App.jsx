@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react'
-import Desempenho from './components/Desempenho'
+import { Component, lazy, Suspense, useEffect, useState } from 'react'
 import Escalacao from './components/Escalacao'
 import Estatisticas from './components/Estatisticas'
 import Header from './components/Header'
@@ -15,6 +14,28 @@ import {
   XV_CLUB,
 } from './lib/eaApi'
 import { loadSeedHistory } from './lib/rivals'
+
+const Desempenho = lazy(() => import('./components/Desempenho'))
+
+class TabError extends Component {
+  constructor(props) {
+    super(props)
+    this.state = { err: null }
+  }
+  static getDerivedStateFromError(err) {
+    return { err }
+  }
+  render() {
+    if (this.state.err) {
+      return (
+        <div className="notice error">
+          Esta aba quebrou: {this.state.err.message || String(this.state.err)}
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 
 export default function App() {
   const store = useStore()
@@ -69,10 +90,16 @@ export default function App() {
       />
       <main className="main">
         <div className="page-wrap">
-          {tab === 'stats' && <Estatisticas store={store} />}
-          {tab === 'desempenho' && <Desempenho store={store} />}
-          {tab === 'rivais' && <Rivais store={store} />}
-          {tab === 'escalacao' && <Escalacao store={store} />}
+          <TabError key={tab}>
+            {tab === 'stats' && <Estatisticas store={store} />}
+            {tab === 'desempenho' && (
+              <Suspense fallback={<div className="notice">Carregando o estudo…</div>}>
+                <Desempenho store={store} />
+              </Suspense>
+            )}
+            {tab === 'rivais' && <Rivais store={store} />}
+            {tab === 'escalacao' && <Escalacao store={store} />}
+          </TabError>
         </div>
       </main>
     </div>

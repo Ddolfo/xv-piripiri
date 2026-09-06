@@ -16,15 +16,15 @@ function fmt2(n) {
   return fmt(n, 2)
 }
 
-function Sign({ value, digits = 1, suffix = '' }) {
-  if (value == null || Number.isNaN(Number(value))) return '—'
+function signText(value, digits = 1, suffix = '') {
+  if (value == null || Number.isNaN(Number(value))) return '-'
   const v = Number(value)
   const abs = Math.abs(v).toLocaleString('pt-BR', {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
   })
   if (v > 0) return `+${abs}${suffix}`
-  if (v < 0) return `−${abs}${suffix}`
+  if (v < 0) return `-${abs}${suffix}`
   return `${abs}${suffix}`
 }
 
@@ -124,7 +124,7 @@ export default function Desempenho({ store }) {
           onOpen={open}
           line={
             c.rise
-              ? `${fmt(c.rise.rating, 1)} → ${fmt2(c.rise.recent.rating)}  (${Sign(c.rise.ratingDelta)})`
+              ? `${fmt(c.rise.rating, 1)} → ${fmt2(c.rise.recent.rating)}  (${signText(c.rise.ratingDelta)})`
               : 'Ninguém disparou na janela'
           }
         />
@@ -217,7 +217,7 @@ export default function Desempenho({ store }) {
                     <td>{p.recent?.games ? `${fmt(p.recent.games)} j` : 'fora'}</td>
                     <td>{p.recent?.rating != null ? fmt2(p.recent.rating) : '—'}</td>
                     <td>{fmt(p.rating, 1)}</td>
-                    <td className={`study-delta ${p.form}`}>{Sign(p.ratingDelta)}</td>
+                    <td className={`study-delta ${p.form}`}>{signText(p.ratingDelta)}</td>
                     <td>
                       {p.recent
                         ? `${fmt(p.recent.involvement)} · ${fmt2(p.recent.gaPg)}/j`
@@ -225,11 +225,11 @@ export default function Desempenho({ store }) {
                     </td>
                     <td>
                       {p.recent?.passPct != null ? `${fmt(p.recent.passPct)}%` : '—'}
-                      {p.passDelta != null ? <small> ({Sign(p.passDelta, 0, ' pp')})</small> : null}
+                      {p.passDelta != null ? <small> ({signText(p.passDelta, 0, ' pp')})</small> : null}
                     </td>
                     <td>
                       {p.recent?.tklPct != null ? `${fmt(p.recent.tklPct)}%` : '—'}
-                      {p.tklDelta != null ? <small> ({Sign(p.tklDelta, 0, ' pp')})</small> : null}
+                      {p.tklDelta != null ? <small> ({signText(p.tklDelta, 0, ' pp')})</small> : null}
                     </td>
                     <td>
                       <FormPill form={p.form} />

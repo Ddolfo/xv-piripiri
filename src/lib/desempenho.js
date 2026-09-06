@@ -236,7 +236,7 @@ export function analyzeDesempenho(players, matches) {
 }
 
 function buildStudy(players, matches) {
-  const roster = (players || []).filter((p) => p.stats)
+  const roster = (players || []).filter((p) => p && p.stats)
   const recentByName = collectRecent(matches)
   const everyone = roster.map((p) => {
     const career = packCareer(p)
