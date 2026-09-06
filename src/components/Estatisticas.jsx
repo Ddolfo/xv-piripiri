@@ -3,6 +3,7 @@ import {
   bundleToEa,
   divisionLabel,
   groupFinishLabel,
+  reputationLabel,
   loadClubBundle,
   MATCH_TYPE_LABEL,
   NATIONS,
@@ -434,7 +435,7 @@ export default function Estatisticas({ store }) {
                 value={fmt(season.points)}
                 hint="Índice interno da EA, não é a tabela"
               />
-              <Fact label="Reputação na temporada" value={`Nível ${fmt(season.reputation)}`} />
+              <Fact label="Reputação na temporada" value={reputationLabel(season.reputation)} />
             </dl>
           ) : (
             <div className="notice">Sincronize o clube para ver a temporada atual.</div>
@@ -455,7 +456,7 @@ export default function Estatisticas({ store }) {
                   value={divisionLabel(overall.bestDivision)}
                   hint={
                     overall.bestFinishGroup
-                      ? `Já chegou na primeira · ${groupFinishLabel(overall.bestFinishGroup)}`
+                      ? `Melhor campanha de playoff · ${groupFinishLabel(overall.bestFinishGroup)}`
                       : 'Pico em todas as temporadas'
                   }
                 />
@@ -471,7 +472,7 @@ export default function Estatisticas({ store }) {
                 />
                 <Fact label="Acessos" value={fmt(overall.promotions)} hint="Subidas de divisão" />
                 <Fact label="Quedas" value={fmt(overall.relegations)} hint="Rebaixamentos" />
-                <Fact label="Reputação na carreira" value={`Nível ${fmt(overall.reputation)}`} />
+                <Fact label="Reputação na carreira" value={reputationLabel(overall.reputation)} />
                 <Fact
                   label="Última atualização"
                   value={
@@ -667,7 +668,7 @@ export default function Estatisticas({ store }) {
               <tr>
                 <th>Temporada da EA</th>
                 <th>Melhor divisão</th>
-                <th>Colocação no grupo</th>
+                <th>Campanha de playoff</th>
               </tr>
             </thead>
             <tbody>

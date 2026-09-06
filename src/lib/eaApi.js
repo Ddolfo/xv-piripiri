@@ -1005,10 +1005,59 @@ export function divisionLabel(code) {
   return `Divisão ${n - 1}`
 }
 
+/**
+ * bestFinishGroup da EA = faixa de campanha de playoff, não “lugar no grupo”.
+ * Fonte: glossário do Pro Clubs Head (proclubshead.com/glossary).
+ */
+export const PLAYOFF_FINISH = {
+  1: { label: 'Campeão', hint: 'top 1%' },
+  2: { label: 'Vice', hint: 'top 5%' },
+  3: { label: 'Competitivo', hint: 'top 10%' },
+  4: { label: 'Meio de tabela', hint: 'top 25%' },
+  5: { label: 'Sem destaque', hint: 'top 50%' },
+  6: { label: 'Participante', hint: 'metade de baixo' },
+}
+
 export function groupFinishLabel(group) {
   const n = Number(group)
-  if (!Number.isFinite(n) || n <= 0) return ''
-  return `${n}º do grupo`
+  const row = PLAYOFF_FINISH[n]
+  if (!row) return Number.isFinite(n) && n > 0 ? `Faixa ${n}` : ''
+  return `${row.label} (${row.hint})`
+}
+
+/**
+ * reputationtier: 1–4 é o selo de fama; 5–10 aparece em alguns endpoints como nível do clube.
+ * Fonte: glossário do Pro Clubs Head.
+ */
+const REPUTATION_TIER = {
+  1: 'Heróis da cidade',
+  2: 'Em ascensão',
+  3: 'Bem conhecido',
+  4: 'Fama mundial',
+}
+
+const CLUB_LEVEL = {
+  1: { fans: '0', name: 'Heróis da cidade' },
+  2: { fans: '1 mi', name: 'Heróis da cidade' },
+  3: { fans: '2 mi', name: 'Heróis da cidade' },
+  4: { fans: '3,5 mi', name: 'Em ascensão' },
+  5: { fans: '5 mi', name: 'Em ascensão' },
+  6: { fans: '7,5 mi', name: 'Em ascensão' },
+  7: { fans: '10 mi', name: 'Bem conhecido' },
+  8: { fans: '14 mi', name: 'Bem conhecido' },
+  9: { fans: '25 mi', name: 'Fama mundial' },
+  10: { fans: '50 mi', name: 'Fama mundial' },
+}
+
+export function reputationLabel(code) {
+  const n = Number(code)
+  if (!Number.isFinite(n) || n <= 0) return '—'
+  if (n >= 5 && n <= 10) {
+    const row = CLUB_LEVEL[n]
+    return `${row.name} · nível ${n} (~${row.fans} torcedores)`
+  }
+  if (REPUTATION_TIER[n]) return `${REPUTATION_TIER[n]} (nível ${n})`
+  return `Nível ${n}`
 }
 
 export const PRO_POS_LABEL = {
