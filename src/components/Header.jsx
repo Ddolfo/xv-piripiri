@@ -23,6 +23,13 @@ export default function Header({ tab, setTab, players, club, overall, booting })
           </button>
           <button
             type="button"
+            className={tab === 'desempenho' ? 'active' : ''}
+            onClick={() => setTab('desempenho')}
+          >
+            Desempenho
+          </button>
+          <button
+            type="button"
             className={tab === 'rivais' ? 'active' : ''}
             onClick={() => setTab('rivais')}
           >
