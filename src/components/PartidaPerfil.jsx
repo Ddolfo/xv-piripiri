@@ -242,7 +242,7 @@ function PlayerTable({ side, sortKey, sortDir, onOpenPlayer, kitFallback }) {
             <th>% passe</th>
             <th>Desarmes</th>
             <th>% desarme</th>
-            <th>Vermelho</th>
+            <th>Expulsões</th>
             <th>Defesas</th>
             <th>Gols sofridos</th>
           </tr>
@@ -349,9 +349,7 @@ export default function PartidaPerfil({
     { label: 'Faltas cometidas', us: us?.foulsCommitted, them: them?.foulsCommitted },
     { label: 'Impedimentos', us: us?.offsides, them: them?.offsides },
     { label: 'Escanteios', us: us?.corners, them: them?.corners },
-    { label: 'Faltas', us: us?.fouls, them: them?.fouls },
-    { label: 'Cartões amarelos', us: us?.yellows, them: them?.yellows },
-    { label: 'Cartões vermelhos', us: us?.redCards, them: them?.redCards },
+    { label: 'Expulsões', us: us?.redCards, them: them?.redCards },
     { label: 'Nota média', us: us?.avgRating, them: them?.avgRating, digits: 2 },
   ].filter((row) => {
     if (!row.hideIfZero) return true

@@ -751,7 +751,7 @@ export default function Estatisticas({ store }) {
                     <th>Chute certo</th>
                     <th>Desarmes</th>
                     <th>% desarmes</th>
-                    <th>Vermelhos</th>
+                    <th>Expulsões</th>
                     <th>Sem sofrer gol</th>
                     <th>Gols nos últimos 10</th>
                   </>

@@ -394,7 +394,7 @@ export default function JogadorPerfil({ player, store, onClose }) {
                   hint="Como goleiro, não sofreu gol"
                 />
                 <Stat
-                  label="Cartões vermelhos"
+                  label="Expulsões"
                   value={fmt(stats.redCards)}
                   hint="Expulsões nesta visão"
                 />
@@ -553,7 +553,7 @@ export default function JogadorPerfil({ player, store, onClose }) {
                         <div className="match-card-block">
                           <h5>Disciplina e partida</h5>
                           <div className="match-card-stats">
-                            <MatchFact label="Cartões vermelhos" value={fmt(m.redCards)} />
+                            <MatchFact label="Expulsões" value={fmt(m.redCards)} />
                             <MatchFact
                               label="Nota da partida"
                               value={m.rating ? fmt(m.rating, 2) : '—'}
