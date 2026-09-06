@@ -184,20 +184,6 @@ export default function Estatisticas({ store }) {
 
   const kitColors = info?.kit?.home || []
 
-  const rosterByLine = useMemo(() => {
-    const order = ['any', 'forward', 'midfielder', 'defender', 'goalkeeper']
-    const groups = order.map((key) => ({
-      key,
-      label: POS_LINE_LABEL[key],
-      players: store.players.filter((p) => p.stats?.favoritePosition === key),
-    }))
-    const rest = store.players.filter(
-      (p) => !order.includes(p.stats?.favoritePosition),
-    )
-    if (rest.length) groups.push({ key: 'other', label: 'Outros', players: rest })
-    return groups.filter((g) => g.players.length)
-  }, [store.players])
-
   const shownMatches = useMemo(() => {
     const list = ea.matches || []
     if (matchFilter === 'all') return list
@@ -535,57 +521,6 @@ export default function Estatisticas({ store }) {
               é a divisão atual nem o pico da carreira.
             </p>
           ) : null}
-      </section>
-
-      <section className="card" style={{ marginTop: 18 }}>
-        <h3>Elenco</h3>
-        <p className="card-lead">
-          A EA não publica foto do Pro. Cada cartão usa as cores da camisa, as iniciais e a
-          bandeira. O arquétipo vem das súmulas recentes — a API não entrega AP, PlayStyles nem
-          especialização.
-        </p>
-        {rosterByLine.length ? (
-          rosterByLine.map((group) => (
-            <div key={group.key} className="roster-line">
-              <h4>{group.label}</h4>
-              <div className="roster-grid">
-                {group.players
-                  .slice()
-                  .sort((a, b) => (Number(b.stats?.games) || 0) - (Number(a.stats?.games) || 0))
-                  .map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      className="roster-card"
-                      onClick={() => setOpenPlayer(p)}
-                    >
-                      <PlayerMark
-                        name={p.name}
-                        nationId={p.stats?.proNationality}
-                        colors={kitColors}
-                        size={64}
-                      />
-                      <b>{p.name}</b>
-                      <small>
-                        {PRO_POS_LABEL[p.stats?.proPos] ||
-                          POS_LINE_LABEL[p.stats?.favoritePosition] ||
-                          '—'}
-                      </small>
-                      {p.stats?.build?.lastLabel ? (
-                        <span className="build-tag">{p.stats.build.lastLabel}</span>
-                      ) : null}
-                      <span>
-                        {fmt(p.stats?.games)} jogos
-                        {p.stats?.proOverall ? ` · ${p.stats.proOverall}` : ''}
-                      </span>
-                    </button>
-                  ))}
-              </div>
-            </div>
-          ))
-        ) : (
-          <div className="notice">Sem jogadores carregados.</div>
-        )}
       </section>
 
       <div className="grid-2" style={{ marginTop: 18 }}>
