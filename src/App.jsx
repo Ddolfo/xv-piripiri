@@ -26,9 +26,14 @@ export default function App() {
       try {
         const seed = await loadSeedHistory()
         if (live) store.mergeMatchHistory([...(seed || []), ...(store.ea?.matches || [])])
-        const list = await searchClubs(XV_CLUB.name, XV_CLUB.platform)
-        const hit =
-          (list || []).find((c) => String(pickClubId(c)) === XV_CLUB.clubId) || list?.[0]
+        let hit = null
+        try {
+          const list = await searchClubs(XV_CLUB.name, XV_CLUB.platform)
+          hit =
+            (list || []).find((c) => String(pickClubId(c)) === XV_CLUB.clubId) || list?.[0] || null
+        } catch {
+          /* playoff: a busca all-time volta vazia ou cai */
+        }
         const id = String(pickClubId(hit) || XV_CLUB.clubId)
         const bundle = await loadClubBundle(id, XV_CLUB.platform, XV_CLUB.name)
         if (!live) return

@@ -1,0 +1,188 @@
+{
+  "clubId": "14693",
+  "updatedAt": "2026-09-06T04:39:23.982Z",
+  "note": "Último recorte completo da EA antes do playoff esvaziar overall, busca e jogos.",
+  "overall": {
+    "wins": 655,
+    "ties": 125,
+    "losses": 401,
+    "games": 1181,
+    "leagueGames": 1071,
+    "playoffGames": 110,
+    "goals": 4441,
+    "goalsAgainst": 3556,
+    "goalDiff": 885,
+    "winPct": 55,
+    "pointsClassic": 2090,
+    "goalsPerGame": 3.76,
+    "concededPerGame": 3.01,
+    "promotions": 44,
+    "relegations": 18,
+    "bestDivision": 2,
+    "bestFinishGroup": 1,
+    "skillRating": 2334,
+    "reputation": 3,
+    "winStreak": 0,
+    "unbeatenStreak": 0,
+    "finishes": [
+      { "code": 1, "label": "Elite", "titles": 0 },
+      { "code": 2, "label": "Divisão 1", "titles": 1 },
+      { "code": 3, "label": "Divisão 2", "titles": 0 },
+      { "code": 4, "label": "Divisão 3", "titles": 0 },
+      { "code": 5, "label": "Divisão 4", "titles": 0 },
+      { "code": 6, "label": "Divisão 5", "titles": 0 }
+    ],
+    "lastOpponentIds": ["9944440", "5554880", "5679012", "5457925", "2402096"],
+    "form": ["D", "V", "V", "V", "D"]
+  },
+  "season": {
+    "wins": 100,
+    "ties": 19,
+    "losses": 63,
+    "games": 182,
+    "playoffGames": 0,
+    "goals": 707,
+    "goalsAgainst": 597,
+    "goalDiff": 110,
+    "cleanSheets": 13,
+    "points": 101,
+    "pointsClassic": 319,
+    "winPct": 55,
+    "goalsPerGame": 3.88,
+    "concededPerGame": 3.28,
+    "promotions": 6,
+    "relegations": 3,
+    "bestDivision": 3,
+    "currentDivision": 3,
+    "reputation": 3,
+    "name": "XV de PiriPiri"
+  },
+  "playoffs": [
+    {
+      "seasonId": "9",
+      "seasonName": "Temporada 08",
+      "bestDivision": 2,
+      "bestDivisionLabel": "Divisão 1",
+      "bestFinishGroup": 1,
+      "bestFinishLabel": "Campeão (top 1%)"
+    },
+    {
+      "seasonId": "8",
+      "seasonName": "Temporada 07",
+      "bestDivision": 3,
+      "bestDivisionLabel": "Divisão 2",
+      "bestFinishGroup": 2,
+      "bestFinishLabel": "Vice (top 5%)"
+    },
+    {
+      "seasonId": "6",
+      "seasonName": "Temporada 05",
+      "bestDivision": 3,
+      "bestDivisionLabel": "Divisão 2",
+      "bestFinishGroup": 2,
+      "bestFinishLabel": "Vice (top 5%)"
+    }
+  ],
+  "matches": [
+    {
+      "id": "1037340411620414",
+      "type": "leagueMatch",
+      "timestamp": 1788669179,
+      "opponent": "GIUSEPPE CAMOLE",
+      "usGoals": 5,
+      "themGoals": 7,
+      "result": "D",
+      "winnerByDnf": false
+    },
+    {
+      "id": "1037350298690284",
+      "type": "leagueMatch",
+      "timestamp": 1788668027,
+      "opponent": "Amorecanas FC",
+      "usGoals": 4,
+      "themGoals": 0,
+      "result": "V",
+      "winnerByDnf": false
+    },
+    {
+      "id": "1037366157920468",
+      "type": "leagueMatch",
+      "timestamp": 1788666784,
+      "opponent": "Greludynhos",
+      "usGoals": 4,
+      "themGoals": 3,
+      "result": "V",
+      "winnerByDnf": false
+    },
+    {
+      "id": "1037166837070347",
+      "type": "leagueMatch",
+      "timestamp": 1788665648,
+      "opponent": "Católica FX",
+      "usGoals": 3,
+      "themGoals": 1,
+      "result": "V",
+      "winnerByDnf": false
+    },
+    {
+      "id": "1037116931160247",
+      "type": "leagueMatch",
+      "timestamp": 1788664614,
+      "opponent": "PANELATIKOS",
+      "usGoals": 0,
+      "themGoals": 2,
+      "result": "D",
+      "winnerByDnf": false
+    },
+    {
+      "id": "1037282179530462",
+      "type": "leagueMatch",
+      "timestamp": 1788663563,
+      "opponent": "Cansados12 FC",
+      "usGoals": 5,
+      "themGoals": 3,
+      "result": "V",
+      "winnerByDnf": false
+    },
+    {
+      "id": "1037184509040229",
+      "type": "leagueMatch",
+      "timestamp": 1788662520,
+      "opponent": "Cansados12 FC",
+      "usGoals": 3,
+      "themGoals": 2,
+      "result": "V",
+      "winnerByDnf": false
+    },
+    {
+      "id": "1037220262790438",
+      "type": "leagueMatch",
+      "timestamp": 1788661324,
+      "opponent": "Liverpooltos",
+      "usGoals": 4,
+      "themGoals": 7,
+      "result": "D",
+      "winnerByDnf": false
+    },
+    {
+      "id": "1037034871120085",
+      "type": "leagueMatch",
+      "timestamp": 1788660259,
+      "opponent": "Arrebentadores2",
+      "usGoals": 3,
+      "themGoals": 0,
+      "result": "V",
+      "winnerByDnf": false
+    },
+    {
+      "id": "1037090541960289",
+      "type": "leagueMatch",
+      "timestamp": 1788659850,
+      "opponent": "100conduta",
+      "usGoals": 4,
+      "themGoals": 0,
+      "result": "V",
+      "winnerByDnf": false
+    }
+  ]
+}

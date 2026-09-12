@@ -1,3 +1,5 @@
+import recorteSnap from '../data/recorte-ea.json'
+
 const EA_HOST =
   typeof window !== 'undefined' && window.location.hostname.endsWith('github.io')
     ? 'https://xv-piripiri.resisted-lycra.workers.dev'
@@ -161,6 +163,56 @@ export async function getClubMatches(
   })
 }
 
+function stubMatch(row) {
+  if (!row) return null
+  const usGoals = Number(row.usGoals) || 0
+  const themGoals = Number(row.themGoals) || 0
+  return {
+    ...row,
+    us: row.us || {
+      clubId: XV_CLUB.clubId,
+      name: XV_CLUB.name,
+      goals: usGoals,
+      goalsAgainst: themGoals,
+      result: row.result || '',
+      players: [],
+      playerCount: 0,
+    },
+    them: row.them || {
+      clubId: row.opponentId || '',
+      name: row.opponent || 'Adversário',
+      goals: themGoals,
+      goalsAgainst: usGoals,
+      players: [],
+      playerCount: 0,
+    },
+  }
+}
+
+export function applyRecorte(bundle, snap = recorteSnap) {
+  if (!snap) return { ...bundle, recorteAt: bundle?.recorteAt || null }
+  const matches = bundle.matches?.length
+    ? bundle.matches
+    : (snap.matches || []).map(stubMatch).filter(Boolean)
+  const overall = bundle.overall || snap.overall || null
+  const season = bundle.season || snap.season || null
+  const playoffs = bundle.playoffs?.length ? bundle.playoffs : snap.playoffs || []
+  const used =
+    (!bundle.overall && snap.overall) ||
+    (!bundle.matches?.length && snap.matches?.length) ||
+    (!bundle.season && snap.season) ||
+    (!bundle.playoffs?.length && snap.playoffs?.length)
+  return {
+    ...bundle,
+    overall,
+    season,
+    playoffs,
+    matches,
+    recent: bundle.recent || summarizeMatches(matches),
+    recorteAt: used ? snap.updatedAt : bundle.recorteAt || null,
+  }
+}
+
 export async function loadClubBundle(clubId, platform = 'common-gen5', clubName = '') {
   const id = String(clubId)
   const name = clubName || XV_CLUB.name
@@ -214,7 +266,7 @@ export async function loadClubBundle(clubId, platform = 'common-gen5', clubName 
     ...normalizeMatches(friendly, id, 'friendlyMatch'),
   ].sort((a, b) => b.timestamp - a.timestamp)
 
-  return {
+  return applyRecorte({
     members: merged,
     overall: normalizeOverall(overallPayload, id),
     info,
@@ -225,7 +277,7 @@ export async function loadClubBundle(clubId, platform = 'common-gen5', clubName 
     board: normalizeBoard(pickFromSearch(boardList, id)),
     builds,
     positionCount: membersPayload?.positionCount || careerPayload?.positionCount || null,
-  }
+  })
 }
 
 export function bundleToEa(bundle) {
@@ -239,6 +291,7 @@ export function bundleToEa(bundle) {
     board: bundle.board,
     builds: bundle.builds || {},
     positionCount: bundle.positionCount,
+    recorteAt: bundle.recorteAt || null,
   }
 }
 

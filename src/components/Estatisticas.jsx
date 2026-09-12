@@ -267,7 +267,9 @@ export default function Estatisticas({ store }) {
       let msg = bits.length
         ? `Sincronizado: ${bits.join(', ')}.`
         : 'Clube encontrado, mas a EA não devolveu números.'
-      if (omitted.length) {
+      if (bundle.recorteAt) {
+        msg += ` Overall, temporada e jogos vêm do recorte de ${new Date(bundle.recorteAt).toLocaleString('pt-BR')} — a EA omitiu esses endpoints no playoff.`
+      } else if (omitted.length) {
         msg += ` A EA omitiu ${omitted.join(', ')} agora (comum em playoff) — o painel mantém o último recorte.`
       }
       setStatus(msg)
@@ -333,6 +335,15 @@ export default function Estatisticas({ store }) {
           </button>
         </div>
       </div>
+
+      {ea.recorteAt ? (
+        <div className="notice" style={{ marginBottom: 18 }}>
+          A EA está em playoff e não publicou overall, temporada nem jogos agora. O painel mostra o
+          último recorte de {new Date(ea.recorteAt).toLocaleString('pt-BR')}. Elenco e carreira
+          continuam ao vivo. A súmula completa dos jogos volta quando a EA reabrir esses
+          endpoints.
+        </div>
+      ) : null}
 
       <div className="kpi-row kpi-row-6">
         <Kpi

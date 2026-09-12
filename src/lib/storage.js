@@ -1,6 +1,19 @@
-import { fixEaText, fixEaTree } from './eaApi'
+import { applyRecorte, fixEaText, fixEaTree } from './eaApi'
 
 const KEY = 'xv-piripiri-coach-v1'
+
+const emptyEa = () =>
+  applyRecorte({
+    overall: null,
+    info: null,
+    playoffs: [],
+    matches: [],
+    recent: null,
+    season: null,
+    board: null,
+    positionCount: null,
+    recorteAt: null,
+  })
 
 const empty = () => ({
   players: [],
@@ -13,16 +26,7 @@ const empty = () => ({
     lastSync: null,
     currentDivision: null,
   },
-  ea: {
-    overall: null,
-    info: null,
-    playoffs: [],
-    matches: [],
-    recent: null,
-    season: null,
-    board: null,
-    positionCount: null,
-  },
+  ea: emptyEa(),
   history: [],
 })
 
@@ -41,7 +45,7 @@ export function loadState() {
         name: fixEaText(parsed.club?.name || base.club.name),
         clubId: parsed.club?.clubId || base.club.clubId,
       },
-      ea: fixEaTree({ ...base.ea, ...parsed.ea }),
+      ea: applyRecorte(fixEaTree({ ...base.ea, ...parsed.ea })),
       history: Array.isArray(parsed.history) ? parsed.history : [],
       players: (parsed.players || []).map((p) => ({
         ...p,
