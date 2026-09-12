@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { Component, useEffect, useState } from 'react'
 import Escalacao from './components/Escalacao'
 import Estatisticas from './components/Estatisticas'
 import Header from './components/Header'
 import Rivais from './components/Rivais'
 import { useStore } from './hooks/useStore'
 import {
+  applyRecorte,
   bundleToEa,
   loadClubBundle,
   pickClubId,
@@ -14,6 +15,31 @@ import {
   XV_CLUB,
 } from './lib/eaApi'
 import { loadSeedHistory } from './lib/rivals'
+
+export class PanelError extends Component {
+  constructor(props) {
+    super(props)
+    this.state = { error: null }
+  }
+
+  static getDerivedStateFromError(error) {
+    return { error }
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="page-wrap" style={{ padding: 24 }}>
+          <div className="notice">
+            O painel travou ao abrir: {String(this.state.error.message || this.state.error)}. Dê
+            um Ctrl+F5. Se continuar, apague os dados do site neste navegador e recarregue.
+          </div>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 
 export default function App() {
   const store = useStore()
@@ -50,7 +76,7 @@ export default function App() {
           ea: bundleToEa(bundle),
         })
       } catch {
-        /* o painel segue com o que já estiver salvo */
+        if (live) store.upsertFromEa([], { ea: bundleToEa(applyRecorte({})) })
       } finally {
         if (live) setBooting(false)
       }
@@ -62,22 +88,24 @@ export default function App() {
   }, [])
 
   return (
-    <div className="app-shell">
-      <Header
-        tab={tab}
-        setTab={setTab}
-        players={store.players}
-        club={store.club}
-        overall={store.ea?.overall}
-        booting={booting}
-      />
-      <main className="main">
-        <div className="page-wrap">
-          {tab === 'stats' && <Estatisticas store={store} />}
-          {tab === 'rivais' && <Rivais store={store} />}
-          {tab === 'escalacao' && <Escalacao store={store} />}
-        </div>
-      </main>
-    </div>
+    <PanelError>
+      <div className="app-shell">
+        <Header
+          tab={tab}
+          setTab={setTab}
+          players={store.players}
+          club={store.club}
+          overall={store.ea?.overall}
+          booting={booting}
+        />
+        <main className="main">
+          <div className="page-wrap">
+            {tab === 'stats' && <Estatisticas store={store} />}
+            {tab === 'rivais' && <Rivais store={store} />}
+            {tab === 'escalacao' && <Escalacao store={store} />}
+          </div>
+        </main>
+      </div>
+    </PanelError>
   )
 }

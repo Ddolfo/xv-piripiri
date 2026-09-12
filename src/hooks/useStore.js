@@ -1,30 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { FORMATIONS } from '../data/formations'
-import { fixEaText, fixEaTree } from '../lib/eaApi'
+import {
+  applyRecorte,
+  fixEaText,
+  fixEaTree,
+  isHollowOverall,
+  isHollowSeason,
+  mergeMatchLists,
+} from '../lib/eaApi'
 import { mergeHistory } from '../lib/rivals'
 import { loadState, saveState, uid } from '../lib/storage'
 
-function mergeFullMatches(prev, next) {
-  const map = new Map()
-  ;(prev || []).forEach((m) => {
-    if (m?.id) map.set(String(m.id), m)
-  })
-  ;(next || []).forEach((m) => {
-    if (!m?.id) return
-    const id = String(m.id)
-    const old = map.get(id)
-    const nextPlayers = m.us?.players?.length || 0
-    const oldPlayers = old?.us?.players?.length || 0
-    map.set(id, nextPlayers >= oldPlayers ? m : old || m)
-  })
-  return [...map.values()].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
-}
-
 function keepLastEa(prev, next) {
-  if (!next) return prev
+  if (!next) return applyRecorte(prev || {})
   const out = { ...prev, ...next }
-  if (!next.overall && prev?.overall) out.overall = prev.overall
-  if (!next.season && prev?.season) out.season = prev.season
+  if (isHollowOverall(next.overall) && !isHollowOverall(prev?.overall)) out.overall = prev.overall
+  if (isHollowSeason(next.season) && !isHollowSeason(prev?.season)) out.season = prev.season
   if (!next.board && prev?.board) out.board = prev.board
   if (!next.info && prev?.info) out.info = prev.info
   if (!next.recent && prev?.recent) out.recent = prev.recent
@@ -32,17 +23,12 @@ function keepLastEa(prev, next) {
   if ((!next.playoffs || !next.playoffs.length) && prev?.playoffs?.length) {
     out.playoffs = prev.playoffs
   }
-  if (next.matches?.length) {
-    out.matches = mergeFullMatches(prev?.matches, next.matches)
-    out.recent = next.recent || prev?.recent
-  } else if (prev?.matches?.length) {
-    out.matches = prev.matches
-    out.recent = prev.recent
-  }
+  out.matches = mergeMatchLists(prev?.matches, next.matches)
+  if (!out.matches.length && prev?.matches?.length) out.matches = prev.matches
   const prevBuilds = prev?.builds && Object.keys(prev.builds).length
   const nextBuilds = next.builds && Object.keys(next.builds).length
   if (!nextBuilds && prevBuilds) out.builds = prev.builds
-  return out
+  return applyRecorte(out)
 }
 
 function healState(s) {
@@ -50,7 +36,7 @@ function healState(s) {
   return {
     ...s,
     club: s.club ? { ...s.club, name: fixEaText(s.club.name || '') } : s.club,
-    ea: s.ea ? fixEaTree(s.ea) : s.ea,
+    ea: applyRecorte(fixEaTree(s.ea || {})),
     history: Array.isArray(s.history) ? s.history : [],
     players: Array.isArray(s.players)
       ? s.players.map((p) => ({

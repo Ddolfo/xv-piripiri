@@ -1,6 +1,7 @@
 import { applyRecorte, fixEaText, fixEaTree } from './eaApi'
 
-const KEY = 'xv-piripiri-coach-v1'
+const KEY = 'xv-piripiri-coach-v2'
+const LEGACY_KEY = 'xv-piripiri-coach-v1'
 
 const emptyEa = () =>
   applyRecorte({
@@ -32,7 +33,7 @@ const empty = () => ({
 
 export function loadState() {
   try {
-    const raw = localStorage.getItem(KEY)
+    const raw = localStorage.getItem(KEY) || localStorage.getItem(LEGACY_KEY)
     if (!raw) return empty()
     const parsed = JSON.parse(raw)
     const base = empty()

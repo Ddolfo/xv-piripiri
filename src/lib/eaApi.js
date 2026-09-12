@@ -89,12 +89,18 @@ async function getJson(path, params = {}) {
   Object.entries(params).forEach(([k, v]) => {
     if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, v)
   })
-  const res = await fetch(url.toString())
-  if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`EA API ${res.status}: ${text.slice(0, 180)}`)
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), 10000)
+  try {
+    const res = await fetch(url.toString(), { signal: ctrl.signal })
+    if (!res.ok) {
+      const text = await res.text()
+      throw new Error(`EA API ${res.status}: ${text.slice(0, 180)}`)
+    }
+    return fixEaTree(await res.json())
+  } finally {
+    clearTimeout(timer)
   }
-  return fixEaTree(await res.json())
 }
 
 async function settled(promise) {
@@ -189,27 +195,50 @@ function stubMatch(row) {
   }
 }
 
-export function applyRecorte(bundle, snap = recorteSnap) {
+export function isHollowOverall(o) {
+  if (!o || typeof o !== 'object') return true
+  return !Number(o.games) && !Number(o.skillRating) && !Number(o.wins)
+}
+
+export function isHollowSeason(o) {
+  if (!o || typeof o !== 'object') return true
+  return !Number(o.games)
+}
+
+export function mergeMatchLists(...lists) {
+  const map = new Map()
+  lists.flat().forEach((m) => {
+    if (!m?.id) return
+    const id = String(m.id)
+    const old = map.get(id)
+    const nextPlayers = m.us?.players?.length || 0
+    const oldPlayers = old?.us?.players?.length || 0
+    map.set(id, nextPlayers >= oldPlayers ? m : old || m)
+  })
+  return [...map.values()].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+}
+
+export function applyRecorte(bundle = {}, snap = recorteSnap) {
   if (!snap) return { ...bundle, recorteAt: bundle?.recorteAt || null }
-  const matches = bundle.matches?.length
-    ? bundle.matches
-    : (snap.matches || []).map(stubMatch).filter(Boolean)
-  const overall = bundle.overall || snap.overall || null
-  const season = bundle.season || snap.season || null
+  const liveMatches = bundle.matches || []
+  const snapMatches = (snap.matches || []).map(stubMatch).filter(Boolean)
+  const matches = mergeMatchLists(snapMatches, liveMatches)
+  const overall = isHollowOverall(bundle.overall) ? snap.overall || null : bundle.overall
+  const season = isHollowSeason(bundle.season) ? snap.season || null : bundle.season
   const playoffs = bundle.playoffs?.length ? bundle.playoffs : snap.playoffs || []
   const used =
-    (!bundle.overall && snap.overall) ||
-    (!bundle.matches?.length && snap.matches?.length) ||
-    (!bundle.season && snap.season) ||
-    (!bundle.playoffs?.length && snap.playoffs?.length)
+    isHollowOverall(bundle.overall) ||
+    isHollowSeason(bundle.season) ||
+    !bundle.playoffs?.length ||
+    !liveMatches.length
   return {
     ...bundle,
     overall,
     season,
     playoffs,
     matches,
-    recent: bundle.recent || summarizeMatches(matches),
-    recorteAt: used ? snap.updatedAt : bundle.recorteAt || null,
+    recent: summarizeMatches(matches),
+    recorteAt: used ? snap.updatedAt : null,
   }
 }
 
