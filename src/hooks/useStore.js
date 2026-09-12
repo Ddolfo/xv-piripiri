@@ -4,6 +4,47 @@ import { fixEaText, fixEaTree } from '../lib/eaApi'
 import { mergeHistory } from '../lib/rivals'
 import { loadState, saveState, uid } from '../lib/storage'
 
+function mergeFullMatches(prev, next) {
+  const map = new Map()
+  ;(prev || []).forEach((m) => {
+    if (m?.id) map.set(String(m.id), m)
+  })
+  ;(next || []).forEach((m) => {
+    if (!m?.id) return
+    const id = String(m.id)
+    const old = map.get(id)
+    const nextPlayers = m.us?.players?.length || 0
+    const oldPlayers = old?.us?.players?.length || 0
+    map.set(id, nextPlayers >= oldPlayers ? m : old || m)
+  })
+  return [...map.values()].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+}
+
+function keepLastEa(prev, next) {
+  if (!next) return prev
+  const out = { ...prev, ...next }
+  if (!next.overall && prev?.overall) out.overall = prev.overall
+  if (!next.season && prev?.season) out.season = prev.season
+  if (!next.board && prev?.board) out.board = prev.board
+  if (!next.info && prev?.info) out.info = prev.info
+  if (!next.recent && prev?.recent) out.recent = prev.recent
+  if (!next.positionCount && prev?.positionCount) out.positionCount = prev.positionCount
+  if ((!next.playoffs || !next.playoffs.length) && prev?.playoffs?.length) {
+    out.playoffs = prev.playoffs
+  }
+  if (next.matches?.length) {
+    out.matches = mergeFullMatches(prev?.matches, next.matches)
+    out.recent = next.recent || prev?.recent
+  } else if (prev?.matches?.length) {
+    out.matches = prev.matches
+    out.recent = prev.recent
+  }
+  const prevBuilds = prev?.builds && Object.keys(prev.builds).length
+  const nextBuilds = next.builds && Object.keys(next.builds).length
+  if (!nextBuilds && prevBuilds) out.builds = prev.builds
+  return out
+}
+
 function healState(s) {
   if (!s) return s
   return {
@@ -99,7 +140,7 @@ export function useStore() {
   const upsertFromEa = useCallback((members, extra = {}) => {
     setState((s) => {
       const players = [...s.players]
-      members.forEach((m) => {
+      ;(members || []).forEach((m) => {
         const key = (m.name || '').trim().toLowerCase()
         if (!key) return
         const idx = players.findIndex(
@@ -158,12 +199,11 @@ export function useStore() {
         club: {
           ...s.club,
           lastSync: new Date().toISOString(),
-          ...(extra.club || {}),
+          ...Object.fromEntries(
+            Object.entries(extra.club || {}).filter(([, v]) => v !== undefined && v !== null && v !== ''),
+          ),
         },
-        ea: {
-          ...s.ea,
-          ...(extra.ea || {}),
-        },
+        ea: keepLastEa(s.ea, extra.ea),
         history: mergeHistory(s.history, extra.ea?.matches),
       }
     })

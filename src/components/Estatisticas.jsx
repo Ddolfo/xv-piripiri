@@ -241,10 +241,11 @@ export default function Estatisticas({ store }) {
     try {
       const bundle = await loadClubBundle(clubId, platform, clubName || query)
       store.setClub({
-        name: clubName || extra.name || query,
+        name: clubName || extra.name || query || store.club.name,
         clubId: String(clubId),
         platform,
-        currentDivision: bundle.season?.currentDivision || extra.currentDivision || null,
+        currentDivision:
+          bundle.season?.currentDivision || extra.currentDivision || store.club.currentDivision,
       })
       store.upsertFromEa(bundle.members, {
         club: {
@@ -258,11 +259,18 @@ export default function Estatisticas({ store }) {
       if (bundle.matches.length) bits.push(`${bundle.matches.length} jogos recentes`)
       if (bundle.playoffs.length) bits.push(`${bundle.playoffs.length} temporadas de playoff`)
       if (bundle.season) bits.push('temporada atual')
-      setStatus(
-        bits.length
-          ? `Sincronizado: ${bits.join(', ')}.`
-          : 'Clube encontrado, mas a EA não devolveu números. Cadastre o elenco manualmente.',
-      )
+      if (bundle.overall) bits.push('overall do clube')
+      const omitted = []
+      if (!bundle.matches.length) omitted.push('jogos')
+      if (!bundle.overall) omitted.push('overall')
+      if (!bundle.season) omitted.push('temporada')
+      let msg = bits.length
+        ? `Sincronizado: ${bits.join(', ')}.`
+        : 'Clube encontrado, mas a EA não devolveu números.'
+      if (omitted.length) {
+        msg += ` A EA omitiu ${omitted.join(', ')} agora (comum em playoff) — o painel mantém o último recorte.`
+      }
+      setStatus(msg)
     } catch (e) {
       setError(e.message)
     } finally {

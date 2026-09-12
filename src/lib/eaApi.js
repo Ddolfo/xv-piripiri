@@ -928,12 +928,13 @@ export function pickClubId(entry) {
 }
 
 export function pickClubName(entry) {
+  if (!entry || typeof entry !== 'object') return ''
   return fixEaText(
-    entry?.clubName ||
-      entry?.name ||
-      entry?.clubInfo?.name ||
-      entry?.clubInfo?.clubName ||
-      'Clube',
+    entry.clubName ||
+      entry.name ||
+      entry.clubInfo?.name ||
+      entry.clubInfo?.clubName ||
+      '',
   )
 }
 
