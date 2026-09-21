@@ -619,6 +619,7 @@ function normalizeMatchPlayer(line, playerId) {
   const assists = num(line?.assists)
   const saves = playerSaves(line)
   const secondsPlayed = num(line?.secondsPlayed || line?.gameTime)
+  const ev = parseMatchEvents(line)
   return {
     id: String(playerId || line?.playername || ''),
     name: fixEaText(line?.playername || line?.name || ''),
@@ -657,6 +658,9 @@ function normalizeMatchPlayer(line, playerId) {
       num(line?.cleansheetsgk) === 1,
     goalsConceded: num(line?.goalsconceded),
     isKeeper: String(line?.pos || '').toLowerCase() === 'goalkeeper' || saves > 0,
+    fouls: ev[108] || 0,
+    offsides: ev[105] || 0,
+    corners: ev[36] || 0,
   }
 }
 

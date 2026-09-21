@@ -2,6 +2,7 @@ import { Component, useEffect, useState } from 'react'
 import Escalacao from './components/Escalacao'
 import Estatisticas from './components/Estatisticas'
 import Header from './components/Header'
+import Radar from './components/Radar'
 import Rivais from './components/Rivais'
 import { useStore } from './hooks/useStore'
 import {
@@ -104,6 +105,7 @@ export default function App() {
         <main className="main">
           <div className="page-wrap">
             {tab === 'stats' && <Estatisticas store={store} />}
+            {tab === 'radar' && <Radar store={store} />}
             {tab === 'rivais' && <Rivais store={store} />}
             {tab === 'escalacao' && <Escalacao store={store} />}
           </div>

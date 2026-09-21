@@ -1718,6 +1718,244 @@ button.match-row:hover { border-color: var(--gold); }
 }
 .goal-chip small { color: var(--muted); font-size: 11px; display: block; }
 
+.radar { margin-bottom: 28px; }
+.radar-pulse {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.radar-pulse > div {
+  padding: 12px 12px 10px;
+  border-radius: 14px;
+  background: #101217;
+  border: 1px solid var(--line-soft);
+}
+.radar-pulse span {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+.radar-pulse b {
+  display: block;
+  margin-top: 6px;
+  font-family: Oswald, Nunito, sans-serif;
+  font-size: 22px;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+.radar-pulse small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.radar-film {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 2px 12px;
+  margin: 0 -2px 18px;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity;
+}
+.radar-ticket {
+  flex: 0 0 132px;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 12px 12px 10px;
+  border-radius: 0 14px 14px 0;
+  border: 1px solid var(--line-soft);
+  border-left: 4px solid #9aa0ab;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 6px,
+      rgba(255, 255, 255, 0.03) 6px,
+      rgba(255, 255, 255, 0.03) 7px
+    ),
+    #12141a;
+  color: var(--ink);
+  text-align: left;
+  min-height: 108px;
+}
+.radar-ticket em {
+  font-style: normal;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--muted);
+}
+.radar-ticket strong {
+  font-family: Oswald, Nunito, sans-serif;
+  font-size: 28px;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+.radar-ticket span {
+  font-size: 12px;
+  font-weight: 700;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.radar-ticket small { color: var(--muted); font-size: 11px; }
+.radar-ticket-v { border-left-color: var(--ok); }
+.radar-ticket-d { border-left-color: var(--danger); }
+.radar-ticket-e { border-left-color: #c8c8c8; }
+.radar-ticket.active {
+  background: linear-gradient(180deg, rgba(255, 210, 0, 0.16), #16140c);
+  border-color: rgba(255, 210, 0, 0.45);
+  color: #fff;
+}
+.radar-ticket.active strong { color: var(--gold); }
+.radar-board {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.radar-jumbo {
+  grid-column: 1 / -1;
+  padding: 22px 22px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 210, 0, 0.28);
+  background:
+    radial-gradient(900px 240px at 10% -20%, rgba(255, 210, 0, 0.18), transparent 55%),
+    linear-gradient(180deg, #14110a 0%, #0c0d10 100%);
+  text-align: center;
+}
+.radar-kicker {
+  margin: 0 0 8px;
+  color: var(--gold);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+.radar-scoreline {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+}
+.radar-club {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.radar-club img { width: 56px; height: 56px; object-fit: contain; }
+.radar-club b {
+  font-size: 13px;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.radar-opp-mark {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: #1a1d24;
+  border: 1px solid var(--line-soft);
+  font-family: Oswald, sans-serif;
+  font-size: 18px;
+  letter-spacing: 0.06em;
+}
+.radar-score {
+  margin: 0;
+  font-family: Oswald, Nunito, sans-serif;
+  font-size: clamp(48px, 8vw, 84px);
+  line-height: 0.9;
+  letter-spacing: 0.02em;
+  font-weight: 700;
+}
+.radar-score i {
+  font-style: normal;
+  margin: 0 8px;
+  color: var(--gold);
+  font-size: 0.55em;
+  vertical-align: 0.12em;
+}
+.radar-motm {
+  margin: 12px 0 14px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.radar-duel,
+.radar-wall {
+  padding: 16px;
+  border-radius: 16px;
+  background: #101217;
+  border: 1px solid var(--line-soft);
+}
+.radar-duel h3,
+.radar-wall h3 { margin: 0 0 4px; font-size: 16px; }
+.radar-versus { margin: 10px 0; }
+.radar-versus-top {
+  display: grid;
+  grid-template-columns: 48px 1fr 48px;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+}
+.radar-versus-top span { text-align: center; color: var(--muted); }
+.radar-versus-top b:last-child { text-align: right; }
+.radar-versus-track {
+  display: block;
+  height: 6px;
+  margin-top: 6px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+.radar-versus-track > i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold), #ffe36a);
+  border-radius: 99px;
+}
+.radar-wall ul { list-style: none; margin: 0; padding: 0; }
+.radar-wall li + li { border-top: 1px solid var(--line-soft); }
+.radar-wall button {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 52px 72px;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+.radar-wall button span b { display: block; font-size: 14px; }
+.radar-wall button span small { color: var(--muted); font-size: 11px; }
+.radar-wall em {
+  font-style: normal;
+  font-family: Oswald, sans-serif;
+  font-size: 26px;
+  letter-spacing: 0.02em;
+  text-align: right;
+}
+.radar-wall em.motm { color: var(--gold); }
+.radar-wall i {
+  font-style: normal;
+  color: var(--muted);
+  font-size: 11px;
+  text-align: right;
+}
+.radar-carry { margin-top: 4px; }
+
 @media (hover: none) {
   .slot-hole.filled .remove-x { display: grid; place-items: center; }
 }
@@ -1749,6 +1987,8 @@ button.match-row:hover { border-color: var(--gold); }
   .stat-group-grid,
   .match-card-stats,
   .goal-form-row { grid-template-columns: 1fr 1fr; }
+  .radar-pulse { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .radar-board { grid-template-columns: 1fr; }
   .stat-hero-item b { font-size: 36px; }
   .player-hero { flex-direction: column; align-items: stretch; }
   .form-grid { grid-template-columns: 1fr; }
@@ -1851,6 +2091,13 @@ button.match-row:hover { border-color: var(--gold); }
   .dash-facts { grid-template-columns: 1fr 1fr 1fr; }
   .dash-squads { grid-template-columns: 1fr; }
   button.match-row { min-height: 52px; }
+  .radar-pulse { grid-template-columns: 1fr 1fr; }
+  .radar-ticket { flex-basis: 120px; min-height: 100px; }
+  .radar-score { font-size: 52px; }
+  .radar-wall button {
+    grid-template-columns: 40px minmax(0, 1fr) 48px;
+  }
+  .radar-wall i { display: none; }
   .match-scorers li { flex-direction: column; align-items: flex-start; gap: 4px; }
   .match-scorers span { text-align: left; }
   .table-scroll {
