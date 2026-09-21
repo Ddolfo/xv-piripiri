@@ -226,7 +226,19 @@ export function applyRecorte(bundle = {}, snap = recorteSnap) {
   const sameClub = !liveId || !snapId || liveId === snapId
   const liveHasData = !isHollowOverall(bundle.overall) || (bundle.matches || []).length > 0
   if (!snap || !sameClub || liveHasData) {
-    return { ...bundle, recorteAt: null }
+    const matches = mergeMatchLists(bundle.matches || []).slice(0, 10)
+    const playoffs = Number(bundle.overall?.playoffGames)
+      ? Array.isArray(bundle.playoffs)
+        ? bundle.playoffs
+        : []
+      : []
+    return {
+      ...bundle,
+      matches,
+      playoffs,
+      recent: summarizeMatches(matches),
+      recorteAt: null,
+    }
   }
   const matches = mergeMatchLists(
     (snap.matches || []).map(stubMatch).filter(Boolean),

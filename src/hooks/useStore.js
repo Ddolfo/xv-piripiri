@@ -21,13 +21,16 @@ function keepLastEa(prev, next) {
   if (isHollowSeason(next.season) && !isHollowSeason(prev?.season)) out.season = prev.season
   if (!next.board && prev?.board) out.board = prev.board
   if (!next.info && prev?.info) out.info = prev.info
-  if (!next.recent && prev?.recent) out.recent = prev.recent
   if (!next.positionCount && prev?.positionCount) out.positionCount = prev.positionCount
-  if ((!next.playoffs || !next.playoffs.length) && prev?.playoffs?.length) {
-    out.playoffs = prev.playoffs
+  out.playoffs = Array.isArray(next.playoffs) ? next.playoffs : []
+  if (!Number(out.overall?.playoffGames)) out.playoffs = []
+  if (next.matches?.length) {
+    out.matches = mergeMatchLists(next.matches).slice(0, 10)
+  } else if (prev?.matches?.length) {
+    out.matches = mergeMatchLists(prev.matches).slice(0, 10)
+  } else {
+    out.matches = []
   }
-  out.matches = mergeMatchLists(prev?.matches, next.matches)
-  if (!out.matches.length && prev?.matches?.length) out.matches = prev.matches
   const prevBuilds = prev?.builds && Object.keys(prev.builds).length
   const nextBuilds = next.builds && Object.keys(next.builds).length
   if (!nextBuilds && prevBuilds) out.builds = prev.builds
@@ -130,63 +133,66 @@ export function useStore() {
     setState((s) => {
       const nextId = String(extra.club?.clubId || extra.ea?.clubId || s.club.clubId || '')
       const clubChanged = Boolean(s.club.clubId && nextId && nextId !== String(s.club.clubId))
-      const players = clubChanged ? [] : [...s.players]
-      ;(members || []).forEach((m) => {
-        const key = (m.name || '').trim().toLowerCase()
-        if (!key) return
-        const idx = players.findIndex(
-          (p) =>
-            p.name.trim().toLowerCase() === key ||
-            (p.psn && p.psn.trim().toLowerCase() === key),
-        )
-        const stats = {
-          games: m.games,
-          winRate: m.winRate,
-          goals: m.goals,
-          assists: m.assists,
-          rating: m.rating,
-          motm: m.motm,
-          cleanSheetsDef: m.cleanSheetsDef,
-          cleanSheetsGK: m.cleanSheetsGK,
-          shotSuccess: m.shotSuccess,
-          passes: m.passes,
-          passSuccess: m.passSuccess,
-          tackles: m.tackles,
-          tackleSuccess: m.tackleSuccess,
-          redCards: m.redCards,
-          proOverall: m.proOverall,
-          proHeight: m.proHeight,
-          proNationality: m.proNationality,
-          proPos: m.proPos,
-          proStyle: m.proStyle,
-          favoritePosition: m.favoritePosition,
-          lastTenGoals: m.lastTenGoals || [],
-          lastTenSum: m.lastTenSum || 0,
-          build: m.build || extra.ea?.builds?.[(m.name || '').trim().toLowerCase()] || null,
-          career: m.career || null,
-          source: 'EA Pro Clubs',
-        }
-        if (idx >= 0) {
-          players[idx] = {
-            ...players[idx],
-            stats,
-            psn: players[idx].psn || m.psn || players[idx].name,
+      const list = members || []
+      const players = []
+      if (list.length) {
+        list.forEach((m) => {
+          const key = (m.name || '').trim().toLowerCase()
+          if (!key) return
+          const old = (clubChanged ? [] : s.players).find(
+            (p) =>
+              p.name.trim().toLowerCase() === key ||
+              (p.psn && p.psn.trim().toLowerCase() === key),
+          )
+          const stats = {
+            games: m.games,
+            winRate: m.winRate,
+            goals: m.goals,
+            assists: m.assists,
+            rating: m.rating,
+            motm: m.motm,
+            cleanSheetsDef: m.cleanSheetsDef,
+            cleanSheetsGK: m.cleanSheetsGK,
+            shotSuccess: m.shotSuccess,
+            passes: m.passes,
+            passSuccess: m.passSuccess,
+            tackles: m.tackles,
+            tackleSuccess: m.tackleSuccess,
+            redCards: m.redCards,
+            proOverall: m.proOverall,
+            proHeight: m.proHeight,
+            proNationality: m.proNationality,
+            proPos: m.proPos,
+            proStyle: m.proStyle,
+            favoritePosition: m.favoritePosition,
+            lastTenGoals: m.lastTenGoals || [],
+            lastTenSum: m.lastTenSum || 0,
+            build: m.build || extra.ea?.builds?.[(m.name || '').trim().toLowerCase()] || null,
+            career: m.career || null,
+            source: 'EA Pro Clubs',
           }
-        } else {
           players.push({
-            id: uid(),
+            id: old?.id || uid(),
             name: m.name,
-            psn: m.psn || m.name,
-            primaryPos: guessPos(m.favoritePosition),
-            secondaryPos: '',
-            extraPositions: [],
+            psn: old?.psn || m.psn || m.name,
+            primaryPos: old?.primaryPos || guessPos(m.favoritePosition),
+            secondaryPos: old?.secondaryPos || '',
+            extraPositions: old?.extraPositions || [],
             stats,
           })
-        }
+        })
+      } else if (!clubChanged) {
+        players.push(...s.players)
+      }
+      const keepIds = new Set(players.map((p) => p.id))
+      const lineup = { ...s.lineup }
+      Object.keys(lineup).forEach((slot) => {
+        if (!keepIds.has(lineup[slot])) delete lineup[slot]
       })
       return {
         ...s,
         players,
+        lineup,
         club: {
           ...s.club,
           lastSync: new Date().toISOString(),

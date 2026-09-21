@@ -1,7 +1,6 @@
 import { applyRecorte, fixEaText, fixEaTree } from './eaApi'
 
-const KEY = 'xv-piripiri-coach-v3'
-const LEGACY_KEYS = ['xv-piripiri-coach-v2', 'xv-piripiri-coach-v1']
+const KEY = 'xv-piripiri-coach-v4'
 const STALE_CLUB_IDS = ['14693']
 
 const emptyEa = () =>
@@ -35,13 +34,7 @@ const empty = () => ({
 
 export function loadState() {
   try {
-    let raw = localStorage.getItem(KEY)
-    if (!raw) {
-      for (const k of LEGACY_KEYS) {
-        raw = localStorage.getItem(k)
-        if (raw) break
-      }
-    }
+    const raw = localStorage.getItem(KEY)
     if (!raw) return empty()
     const parsed = JSON.parse(raw)
     const base = empty()

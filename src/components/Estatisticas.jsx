@@ -192,9 +192,9 @@ export default function Estatisticas({ store }) {
   const kitColors = info?.kit?.home || []
 
   const shownMatches = useMemo(() => {
-    const list = ea.matches || []
-    if (matchFilter === 'all') return list
-    return list.filter((m) => m.type === matchFilter)
+    const list = [...(ea.matches || [])].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+    const filtered = matchFilter === 'all' ? list : list.filter((m) => m.type === matchFilter)
+    return filtered.slice(0, 10)
   }, [ea.matches, matchFilter])
 
   const teamTotals = useMemo(() => {
@@ -553,13 +553,12 @@ export default function Estatisticas({ store }) {
         <section className="card">
           <h3>Últimos jogos do XV</h3>
           <p className="card-lead">
-            Clique numa partida para abrir a súmula completa contra aquele time. A EA só entrega os
-            10 mais recentes de cada tipo.
+            Só os 10 jogos mais recentes da EA. Clique numa partida para abrir a súmula.
           </p>
           {recent ? (
             <div className="recent-strip">
               <span>
-                Nos {recent.games} jogos carregados: {record(recent.wins, recent.ties, recent.losses)}
+                Nos últimos {recent.games} jogos: {record(recent.wins, recent.ties, recent.losses)}
               </span>
               <span>
                 Gols {fmt(recent.goals)}–{fmt(recent.goalsAgainst)}
