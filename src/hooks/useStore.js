@@ -13,7 +13,10 @@ import { loadState, saveState, uid } from '../lib/storage'
 
 function keepLastEa(prev, next) {
   if (!next) return applyRecorte(prev || {})
-  const out = { ...prev, ...next }
+  const prevId = prev?.clubId ? String(prev.clubId) : ''
+  const nextId = next?.clubId ? String(next.clubId) : ''
+  if (prevId && nextId && prevId !== nextId) return applyRecorte({ ...next, clubId: nextId })
+  const out = { ...prev, ...next, clubId: nextId || prevId || null }
   if (isHollowOverall(next.overall) && !isHollowOverall(prev?.overall)) out.overall = prev.overall
   if (isHollowSeason(next.season) && !isHollowSeason(prev?.season)) out.season = prev.season
   if (!next.board && prev?.board) out.board = prev.board
@@ -125,7 +128,9 @@ export function useStore() {
 
   const upsertFromEa = useCallback((members, extra = {}) => {
     setState((s) => {
-      const players = [...s.players]
+      const nextId = String(extra.club?.clubId || extra.ea?.clubId || s.club.clubId || '')
+      const clubChanged = Boolean(s.club.clubId && nextId && nextId !== String(s.club.clubId))
+      const players = clubChanged ? [] : [...s.players]
       ;(members || []).forEach((m) => {
         const key = (m.name || '').trim().toLowerCase()
         if (!key) return
@@ -189,8 +194,10 @@ export function useStore() {
             Object.entries(extra.club || {}).filter(([, v]) => v !== undefined && v !== null && v !== ''),
           ),
         },
-        ea: keepLastEa(s.ea, extra.ea),
-        history: mergeHistory(s.history, extra.ea?.matches),
+        ea: keepLastEa(clubChanged ? {} : s.ea, extra.ea),
+        history: clubChanged
+          ? mergeHistory([], extra.ea?.matches)
+          : mergeHistory(s.history, extra.ea?.matches),
       }
     })
   }, [])

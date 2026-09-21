@@ -11,6 +11,7 @@ import {
   pickClubId,
   pickClubName,
   pickCurrentDivision,
+  pickXvClub,
   searchClubs,
   XV_CLUB,
 } from './lib/eaApi'
@@ -51,16 +52,18 @@ export default function App() {
     ;(async () => {
       try {
         const seed = await loadSeedHistory()
-        if (live) store.mergeMatchHistory([...(seed || []), ...(store.ea?.matches || [])])
         let hit = null
         try {
           const list = await searchClubs(XV_CLUB.name, XV_CLUB.platform)
-          hit =
-            (list || []).find((c) => String(pickClubId(c)) === XV_CLUB.clubId) || list?.[0] || null
+          hit = pickXvClub(list)
         } catch {
-          /* playoff: a busca all-time volta vazia ou cai */
+          /* busca vazia ou cai */
         }
         const id = String(pickClubId(hit) || XV_CLUB.clubId)
+        if (live) {
+          const seedMatches = String(id) === '14693' ? seed || [] : []
+          store.mergeMatchHistory([...seedMatches, ...(store.ea?.matches || [])])
+        }
         const bundle = await loadClubBundle(id, XV_CLUB.platform, XV_CLUB.name)
         if (!live) return
         store.upsertFromEa(bundle.members, {
@@ -76,7 +79,7 @@ export default function App() {
           ea: bundleToEa(bundle),
         })
       } catch {
-        if (live) store.upsertFromEa([], { ea: bundleToEa(applyRecorte({})) })
+        if (live) store.upsertFromEa([], { ea: bundleToEa(applyRecorte({ clubId: XV_CLUB.clubId })) })
       } finally {
         if (live) setBooting(false)
       }

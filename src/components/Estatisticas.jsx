@@ -22,6 +22,7 @@ const SQUAD_SORTS = [
   { key: 'goals', label: 'Mais gols' },
   { key: 'games', label: 'Mais jogos' },
   { key: 'assists', label: 'Mais assistências' },
+  { key: 'involvement', label: 'Participações em gol' },
   { key: 'rating', label: 'Melhor nota' },
   { key: 'motm', label: 'Mais MOTM' },
   { key: 'winRate', label: 'Melhor aproveitamento' },
@@ -32,6 +33,12 @@ const SQUAD_SORTS = [
 
 function statNumber(player, key, view) {
   const pack = view === 'career' ? player.stats?.career : player.stats
+  if (key === 'involvement') {
+    const g = Number(pack?.goals ?? player.stats?.goals)
+    const a = Number(pack?.assists ?? player.stats?.assists)
+    const sum = (Number.isFinite(g) ? g : 0) + (Number.isFinite(a) ? a : 0)
+    return sum || null
+  }
   const v = pack?.[key] ?? player.stats?.[key]
   const n = Number(v)
   return Number.isFinite(n) ? n : null
@@ -325,8 +332,8 @@ export default function Estatisticas({ store }) {
         <div>
           <h2>Estatísticas do clube</h2>
           <p>
-            Tudo o que a API da EA devolve para o {store.club.name || 'XV de PiriPiri'}. Clique em
-            um jogador para abrir a ficha.
+            Números do FC 27 para o {store.club.name || 'XV de PiriPiri'}. Clique em um jogador
+            para abrir a ficha.
           </p>
         </div>
         <div className="actions" style={{ marginTop: 0 }}>
@@ -640,7 +647,10 @@ export default function Estatisticas({ store }) {
             </tbody>
           </table>
         ) : (
-          <div className="notice">Sem histórico de playoff na EA.</div>
+          <div className="notice">
+            Ainda não houve playoff no FC 27. A EA devolve lista vazia até o clube entrar na
+            fase.
+          </div>
         )}
         </section>
       </div>
@@ -695,6 +705,7 @@ export default function Estatisticas({ store }) {
                 <th>Gols/jogo</th>
                 <th>Assistências</th>
                 <th>Assist./jogo</th>
+                <th>Gols+Ast</th>
                 <th>Nota</th>
                 <th>Melhor em campo</th>
                 {view === 'club' ? (
@@ -770,6 +781,7 @@ export default function Estatisticas({ store }) {
                     <td>{perGame(s.goals, s.games)}</td>
                     <td>{fmt(s.assists)}</td>
                     <td>{perGame(s.assists, s.games)}</td>
+                    <td>{fmt((Number(s.goals) || 0) + (Number(s.assists) || 0))}</td>
                     <td>
                       {s.rating
                         ? Number(s.rating).toLocaleString('pt-BR', {

@@ -9,7 +9,7 @@ export default function Header({ tab, setTab, players, club, overall, booting })
           <img src={LOGO_SRC} alt="XV de PiriPiri" />
           <div>
             <h1>XV DE PIRIPIRI</h1>
-            <p>Painel técnico · desde 2021</p>
+            <p>Painel técnico · FC 27 · desde 2021</p>
           </div>
         </div>
 

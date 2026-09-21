@@ -1,10 +1,12 @@
 import { applyRecorte, fixEaText, fixEaTree } from './eaApi'
 
-const KEY = 'xv-piripiri-coach-v2'
-const LEGACY_KEY = 'xv-piripiri-coach-v1'
+const KEY = 'xv-piripiri-coach-v3'
+const LEGACY_KEYS = ['xv-piripiri-coach-v2', 'xv-piripiri-coach-v1']
+const STALE_CLUB_IDS = ['14693']
 
 const emptyEa = () =>
   applyRecorte({
+    clubId: '51895',
     overall: null,
     info: null,
     playoffs: [],
@@ -22,7 +24,7 @@ const empty = () => ({
   lineup: {},
   club: {
     name: 'XV de PiriPiri',
-    clubId: '14693',
+    clubId: '51895',
     platform: 'common-gen5',
     lastSync: null,
     currentDivision: null,
@@ -33,26 +35,38 @@ const empty = () => ({
 
 export function loadState() {
   try {
-    const raw = localStorage.getItem(KEY) || localStorage.getItem(LEGACY_KEY)
+    let raw = localStorage.getItem(KEY)
+    if (!raw) {
+      for (const k of LEGACY_KEYS) {
+        raw = localStorage.getItem(k)
+        if (raw) break
+      }
+    }
     if (!raw) return empty()
     const parsed = JSON.parse(raw)
     const base = empty()
+    const parsedId = String(parsed.club?.clubId || '')
+    const stale = STALE_CLUB_IDS.includes(parsedId)
     return {
       ...base,
       ...parsed,
       club: {
         ...base.club,
-        ...parsed.club,
-        name: fixEaText(parsed.club?.name || base.club.name),
-        clubId: parsed.club?.clubId || base.club.clubId,
+        ...(stale ? {} : parsed.club),
+        name: 'XV de PiriPiri',
+        clubId: stale ? base.club.clubId : parsedId || base.club.clubId,
       },
-      ea: applyRecorte(fixEaTree({ ...base.ea, ...parsed.ea })),
-      history: Array.isArray(parsed.history) ? parsed.history : [],
-      players: (parsed.players || []).map((p) => ({
-        ...p,
-        name: fixEaText(p.name || ''),
-        psn: p.psn ? fixEaText(p.psn) : p.psn,
-      })),
+      ea: stale
+        ? emptyEa()
+        : applyRecorte(fixEaTree({ ...base.ea, ...parsed.ea, clubId: parsedId || base.club.clubId })),
+      history: stale ? [] : Array.isArray(parsed.history) ? parsed.history : [],
+      players: stale
+        ? []
+        : (parsed.players || []).map((p) => ({
+            ...p,
+            name: fixEaText(p.name || ''),
+            psn: p.psn ? fixEaText(p.psn) : p.psn,
+          })),
     }
   } catch {
     return empty()

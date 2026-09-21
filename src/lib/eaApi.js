@@ -9,7 +9,8 @@ const BASE = `${EA_HOST}/ea/api/fc`
 
 export const XV_CLUB = {
   name: 'XV de PiriPiri',
-  clubId: '14693',
+  clubId: '51895',
+  legacyClubIds: ['14693'],
   platform: 'common-gen5',
 }
 
@@ -37,6 +38,7 @@ const MOJIBAKE_PAIRS = [
   ['Âª', 'ª'],
   ['EstÃdio', 'Estádio'],
   ['nÃvel', 'nível'],
+  ['Estádio de ní', 'Estádio de nível'],
 ]
 
 /**
@@ -219,26 +221,29 @@ export function mergeMatchLists(...lists) {
 }
 
 export function applyRecorte(bundle = {}, snap = recorteSnap) {
-  if (!snap) return { ...bundle, recorteAt: bundle?.recorteAt || null }
-  const liveMatches = bundle.matches || []
-  const snapMatches = (snap.matches || []).map(stubMatch).filter(Boolean)
-  const matches = mergeMatchLists(snapMatches, liveMatches)
+  const liveId = String(bundle.clubId || '')
+  const snapId = String(snap?.clubId || '')
+  const sameClub = !liveId || !snapId || liveId === snapId
+  const liveHasData = !isHollowOverall(bundle.overall) || (bundle.matches || []).length > 0
+  if (!snap || !sameClub || liveHasData) {
+    return { ...bundle, recorteAt: null }
+  }
+  const matches = mergeMatchLists(
+    (snap.matches || []).map(stubMatch).filter(Boolean),
+    bundle.matches || [],
+  )
   const overall = isHollowOverall(bundle.overall) ? snap.overall || null : bundle.overall
   const season = isHollowSeason(bundle.season) ? snap.season || null : bundle.season
   const playoffs = bundle.playoffs?.length ? bundle.playoffs : snap.playoffs || []
-  const used =
-    isHollowOverall(bundle.overall) ||
-    isHollowSeason(bundle.season) ||
-    !bundle.playoffs?.length ||
-    !liveMatches.length
   return {
     ...bundle,
+    clubId: liveId || snapId,
     overall,
     season,
     playoffs,
     matches,
     recent: summarizeMatches(matches),
-    recorteAt: used ? snap.updatedAt : null,
+    recorteAt: snap.updatedAt || null,
   }
 }
 
@@ -294,16 +299,23 @@ export async function loadClubBundle(clubId, platform = 'common-gen5', clubName 
     ...normalizeMatches(playoff, id, 'playoffMatch'),
     ...normalizeMatches(friendly, id, 'friendlyMatch'),
   ].sort((a, b) => b.timestamp - a.timestamp)
+  const overall = normalizeOverall(overallPayload, id)
+  const season = normalizeBoard(pickFromSearch(seasonList, id))
+  const board = normalizeBoard(pickFromSearch(boardList, id))
+  if (overall && !overall.bestDivision) {
+    overall.bestDivision = season?.bestDivision || board?.bestDivision || 0
+  }
 
   return applyRecorte({
+    clubId: id,
     members: merged,
-    overall: normalizeOverall(overallPayload, id),
+    overall,
     info,
     playoffs: normalizePlayoffs(playoffsPayload),
     matches,
     recent: summarizeMatches(matches),
-    season: normalizeBoard(pickFromSearch(seasonList, id)),
-    board: normalizeBoard(pickFromSearch(boardList, id)),
+    season,
+    board,
     builds,
     positionCount: membersPayload?.positionCount || careerPayload?.positionCount || null,
   })
@@ -311,6 +323,7 @@ export async function loadClubBundle(clubId, platform = 'common-gen5', clubName 
 
 export function bundleToEa(bundle) {
   return {
+    clubId: bundle.clubId || null,
     overall: bundle.overall,
     info: bundle.info,
     playoffs: bundle.playoffs,
@@ -734,9 +747,10 @@ function normalizeMatches(payload, clubId, type) {
 
 function matchResult(ours) {
   if (!ours) return ''
-  if (num(ours.wins) === 1 || String(ours.result) === '1') return 'V'
-  if (num(ours.ties) === 1) return 'E'
-  if (num(ours.losses) === 1 || String(ours.result) === '2') return 'D'
+  const code = String(ours.result || '')
+  if (num(ours.wins) === 1 || code === '1' || code === '16385') return 'V'
+  if (num(ours.ties) === 1 || code === '4') return 'E'
+  if (num(ours.losses) === 1 || code === '2' || code === '10') return 'D'
   const gf = num(ours.goals ?? ours.score)
   const ga = num(ours.goalsAgainst)
   if (gf > ga) return 'V'
@@ -1009,6 +1023,16 @@ export function pickClubId(entry) {
   )
 }
 
+export function pickXvClub(list) {
+  const arr = Array.isArray(list) ? list : []
+  const want = XV_CLUB.name.toLowerCase()
+  const exact = arr.find((c) => pickClubName(c).trim().toLowerCase() === want)
+  if (exact) return exact
+  const byId = arr.find((c) => String(pickClubId(c)) === XV_CLUB.clubId)
+  if (byId) return byId
+  return arr.find((c) => !XV_CLUB.legacyClubIds.includes(String(pickClubId(c)))) || arr[0] || null
+}
+
 export function pickClubName(entry) {
   if (!entry || typeof entry !== 'object') return ''
   return fixEaText(
@@ -1038,7 +1062,7 @@ export const POS_LINE_LABEL = {
   goalkeeper: 'Goleiro',
 }
 
-/** FC 26 Clubs: 13 arquétipos, na ordem do player builder. */
+/** FC 26/27 Clubs: 13 arquétipos, na ordem do player builder. */
 export const ARCHETYPE_LABEL = {
   1: 'Shot Stopper',
   2: 'Sweeper Keeper',
@@ -1079,7 +1103,7 @@ export function archetypeLabel(id) {
 
 /**
  * Código da EA: 1 = Elite, 2 = Divisão 1, 3 = Divisão 2, 4 = Divisão 3…
- * No XV (14693) a temporada atual vem 4 (= 3ª) e o pico da carreira 2 (= 1ª).
+ * No FC 27 o XV (51895) está em currentDivision 3 = Divisão 2.
  */
 export function divisionLabel(code) {
   const n = Number(code)
