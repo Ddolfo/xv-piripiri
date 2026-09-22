@@ -65,6 +65,7 @@ export function carryBoard(matches) {
         saves: 0,
         motm: 0,
         fouls: 0,
+        offsides: 0,
         ratingSum: 0,
         ratedGames: 0,
         lastArchetype: '',
@@ -83,6 +84,7 @@ export function carryBoard(matches) {
       row.saves += Number(p.saves) || 0
       row.motm += Number(p.motm) || 0
       row.fouls += Number(p.fouls) || 0
+      row.offsides += Number(p.offsides) || 0
       if (p.rating) {
         row.ratingSum += p.rating
         row.ratedGames += 1

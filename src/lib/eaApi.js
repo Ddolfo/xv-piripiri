@@ -1015,6 +1015,8 @@ export async function loadPlayerDossier(playerName, clubId, clubName, platform =
     passAttempts,
     passPct: passAttempts ? Math.round((passes / passAttempts) * 100) : null,
     redCards: matches.reduce((a, m) => a + (m.redCards || 0), 0),
+    offsides: matches.reduce((a, m) => a + (m.offsides || 0), 0),
+    fouls: matches.reduce((a, m) => a + (m.fouls || 0), 0),
     rating: rated.length ? rated.reduce((a, m) => a + m.rating, 0) / rated.length : 0,
   }
 

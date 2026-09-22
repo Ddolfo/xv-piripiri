@@ -53,13 +53,31 @@ function VersusBar({ label, us, them }) {
 }
 
 export default function Radar({ store }) {
-  const matches = useMemo(() => takeLastTen(store.ea?.matches), [store.ea?.matches])
-  const pulse = useMemo(() => pulseOf(matches), [matches])
-  const board = useMemo(() => carryBoard(matches), [matches])
-  const kit = store.ea?.info?.kit?.home || []
   const [focusId, setFocusId] = useState(null)
   const [openMatch, setOpenMatch] = useState(null)
   const [openPlayer, setOpenPlayer] = useState(null)
+  const [carrySort, setCarrySort] = useState('rating')
+  const matches = useMemo(() => takeLastTen(store.ea?.matches), [store.ea?.matches])
+  const pulse = useMemo(() => pulseOf(matches), [matches])
+  const board = useMemo(() => carryBoard(matches), [matches])
+  const offsideLeaders = useMemo(
+    () =>
+      [...board]
+        .filter((p) => p.offsides > 0)
+        .sort((a, b) => b.offsides - a.offsides || a.name.localeCompare(b.name, 'pt-BR')),
+    [board],
+  )
+  const rankedBoard = useMemo(() => {
+    const list = [...board]
+    if (carrySort === 'offsides') {
+      return list.sort((a, b) => b.offsides - a.offsides || b.rating - a.rating || a.name.localeCompare(b.name, 'pt-BR'))
+    }
+    if (carrySort === 'involvement') {
+      return list.sort((a, b) => b.involvement - a.involvement || b.rating - a.rating || a.name.localeCompare(b.name, 'pt-BR'))
+    }
+    return list
+  }, [board, carrySort])
+  const kit = store.ea?.info?.kit?.home || []
 
   const focus = matches.find((m) => m.id === focusId) || matches[0] || null
   const motm = motmOf(focus)
@@ -157,6 +175,10 @@ export default function Radar({ store }) {
           <span>Escanteios</span>
           <b>{fmt(pulse.corners)}</b>
         </div>
+        <div>
+          <span>Impedimentos</span>
+          <b>{fmt(pulse.offsides)}</b>
+        </div>
       </div>
 
       <div className="radar-film" role="list">
@@ -253,13 +275,16 @@ export default function Radar({ store }) {
                       </span>
                       <em className={p.motm ? 'motm' : ''}>{p.rating ? fmt(p.rating, 1) : '—'}</em>
                       <i>
-                        {p.goals || p.assists
-                          ? `${p.goals}G ${p.assists}A`
-                          : p.shots
-                            ? `${p.shots} chutes`
-                            : p.passes
-                              ? `${p.passes} passes`
-                              : ' '}
+                        {[
+                          p.goals || p.assists ? `${p.goals}G ${p.assists}A` : '',
+                          p.offsides ? `${p.offsides} imp` : '',
+                          !p.goals && !p.assists && !p.offsides && p.shots ? `${p.shots} chutes` : '',
+                          !p.goals && !p.assists && !p.offsides && !p.shots && p.passes
+                            ? `${p.passes} passes`
+                            : '',
+                        ]
+                          .filter(Boolean)
+                          .join(' · ') || ' '}
                       </i>
                     </button>
                   </li>
@@ -275,9 +300,38 @@ export default function Radar({ store }) {
       <section className="card radar-carry">
         <h3>Quem carregou os 10</h3>
         <p className="card-lead">
-          Soma só destas súmulas. Passe pesado = certos por jogo vezes o aproveitamento - volume e
-          qualidade juntos, não só o percentual.
+          Soma só destas súmulas. Impedimento vem no evento de cada jogador na súmula, não no
+          total do clube. Passe pesado = certos por jogo vezes o aproveitamento.
         </p>
+        {offsideLeaders.length ? (
+          <p className="radar-offside-lead">
+            Quem mais ficou em impedimento: <b>{offsideLeaders[0].name}</b> ({fmt(offsideLeaders[0].offsides)}
+            {offsideLeaders[0].offsides === 1 ? ' vez' : ' vezes'} nos 10)
+            {offsideLeaders[1]
+              ? ` · depois ${offsideLeaders[1].name} (${fmt(offsideLeaders[1].offsides)})`
+              : ''}
+            .
+          </p>
+        ) : (
+          <p className="radar-offside-lead">Nenhum impedimento marcado nestas súmulas.</p>
+        )}
+        <div className="stats-filters" style={{ marginBottom: 10 }}>
+          <span className="stats-filters-label">Ordenar</span>
+          {[
+            ['rating', 'Nota'],
+            ['offsides', 'Impedimentos'],
+            ['involvement', 'Gols+Ast'],
+          ].map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              className={`filter-chip${carrySort === key ? ' active' : ''}`}
+              onClick={() => setCarrySort(key)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         {board.length ? (
         <div className="table-scroll">
           <table className="stats-table">
@@ -294,11 +348,12 @@ export default function Radar({ store }) {
                 <th>Certos/jogo</th>
                 <th>% passe</th>
                 <th>Desarmes</th>
+                <th>Imped.</th>
                 <th>MOTM</th>
               </tr>
             </thead>
             <tbody>
-              {board.map((p, i) => (
+              {rankedBoard.map((p, i) => (
                 <tr
                   key={p.name}
                   className={`stats-row-click${i === 0 ? ' rank-top' : ''}`}
@@ -329,6 +384,7 @@ export default function Radar({ store }) {
                   <td>{p.certosPorJogo ? fmt(p.certosPorJogo, 1) : '—'}</td>
                   <td>{p.passPct ? `${p.passPct}%` : '—'}</td>
                   <td>{fmt(p.tackles)}</td>
+                  <td>{fmt(p.offsides)}</td>
                   <td>{fmt(p.motm)}</td>
                 </tr>
               ))}

@@ -1721,7 +1721,7 @@ button.match-row:hover { border-color: var(--gold); }
 .radar { margin-bottom: 28px; }
 .radar-pulse {
   display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
   gap: 8px;
   margin-bottom: 16px;
 }
@@ -1955,6 +1955,12 @@ button.match-row:hover { border-color: var(--gold); }
   text-align: right;
 }
 .radar-carry { margin-top: 4px; }
+.radar-offside-lead {
+  margin: 0 0 12px;
+  color: var(--ink);
+  font-size: 14px;
+}
+.radar-offside-lead b { color: var(--gold); }
 
 @media (hover: none) {
   .slot-hole.filled .remove-x { display: grid; place-items: center; }
@@ -1987,7 +1993,7 @@ button.match-row:hover { border-color: var(--gold); }
   .stat-group-grid,
   .match-card-stats,
   .goal-form-row { grid-template-columns: 1fr 1fr; }
-  .radar-pulse { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .radar-pulse { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .radar-board { grid-template-columns: 1fr; }
   .stat-hero-item b { font-size: 36px; }
   .player-hero { flex-direction: column; align-items: stretch; }
