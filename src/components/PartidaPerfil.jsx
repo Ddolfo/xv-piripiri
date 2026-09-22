@@ -156,10 +156,6 @@ function SquadCard({ player, kit, onOpen }) {
           <em>Ch</em>
           {fmt(player.shots)}
         </span>
-        <span>
-          <em>Imp</em>
-          {fmt(player.offsides)}
-        </span>
       </div>
     </button>
   )
@@ -206,7 +202,6 @@ const PLAYER_SORTS = [
   { key: 'shots', label: 'Chutes' },
   { key: 'passes', label: 'Passes' },
   { key: 'tackles', label: 'Desarmes' },
-  { key: 'offsides', label: 'Impedimentos' },
   { key: 'minutes', label: 'Minutos' },
   { key: 'name', label: 'Nome' },
 ]

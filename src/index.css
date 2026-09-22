@@ -1955,12 +1955,6 @@ button.match-row:hover { border-color: var(--gold); }
   text-align: right;
 }
 .radar-carry { margin-top: 4px; }
-.radar-offside-lead {
-  margin: 0 0 12px;
-  color: var(--ink);
-  font-size: 14px;
-}
-.radar-offside-lead b { color: var(--gold); }
 
 @media (hover: none) {
   .slot-hole.filled .remove-x { display: grid; place-items: center; }

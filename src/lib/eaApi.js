@@ -659,7 +659,6 @@ function normalizeMatchPlayer(line, playerId) {
     goalsConceded: num(line?.goalsconceded),
     isKeeper: String(line?.pos || '').toLowerCase() === 'goalkeeper' || saves > 0,
     fouls: ev[108] || 0,
-    offsides: ev[105] || 0,
     corners: ev[36] || 0,
   }
 }
@@ -1015,8 +1014,6 @@ export async function loadPlayerDossier(playerName, clubId, clubName, platform =
     passAttempts,
     passPct: passAttempts ? Math.round((passes / passAttempts) * 100) : null,
     redCards: matches.reduce((a, m) => a + (m.redCards || 0), 0),
-    offsides: matches.reduce((a, m) => a + (m.offsides || 0), 0),
-    fouls: matches.reduce((a, m) => a + (m.fouls || 0), 0),
     rating: rated.length ? rated.reduce((a, m) => a + m.rating, 0) / rated.length : 0,
   }
 

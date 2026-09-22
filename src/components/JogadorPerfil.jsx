@@ -432,11 +432,6 @@ export default function JogadorPerfil({ player, store, onClose }) {
                     hint={recent.passPct != null ? `${recent.passPct}% de acerto` : ''}
                   />
                   <Stat label="Desarmes" value={fmt(recent.tackles)} hint="Desarmes nessas partidas" />
-                  <Stat
-                    label="Impedimentos"
-                    value={fmt(recent.offsides)}
-                    hint="Marcados na súmula deste jogador"
-                  />
                 </Group>
               ) : null}
 
@@ -558,8 +553,6 @@ export default function JogadorPerfil({ player, store, onClose }) {
                         <div className="match-card-block">
                           <h5>Disciplina e partida</h5>
                           <div className="match-card-stats">
-                            <MatchFact label="Impedimentos" value={fmt(m.offsides)} />
-                            <MatchFact label="Faltas" value={fmt(m.fouls)} />
                             <MatchFact label="Expulsões" value={fmt(m.redCards)} />
                             <MatchFact
                               label="Nota da partida"
