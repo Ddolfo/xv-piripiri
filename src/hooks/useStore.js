@@ -24,13 +24,7 @@ function keepLastEa(prev, next) {
   if (!next.positionCount && prev?.positionCount) out.positionCount = prev.positionCount
   out.playoffs = Array.isArray(next.playoffs) ? next.playoffs : []
   if (!Number(out.overall?.playoffGames)) out.playoffs = []
-  if (next.matches?.length) {
-    out.matches = mergeMatchLists(next.matches).slice(0, 10)
-  } else if (prev?.matches?.length) {
-    out.matches = mergeMatchLists(prev.matches).slice(0, 10)
-  } else {
-    out.matches = []
-  }
+  out.matches = mergeMatchLists(next?.matches, prev?.matches).slice(0, 10)
   const prevBuilds = prev?.builds && Object.keys(prev.builds).length
   const nextBuilds = next.builds && Object.keys(next.builds).length
   if (!nextBuilds && prevBuilds) out.builds = prev.builds

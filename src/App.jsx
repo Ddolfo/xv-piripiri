@@ -47,6 +47,31 @@ export default function App() {
   const store = useStore()
   const [tab, setTab] = useState('stats')
   const [booting, setBooting] = useState(true)
+  const [syncing, setSyncing] = useState(false)
+
+  async function syncEa() {
+    if (!store.club.clubId || syncing) return
+    setSyncing(true)
+    try {
+      const bundle = await loadClubBundle(
+        store.club.clubId,
+        store.club.platform || XV_CLUB.platform,
+        store.club.name,
+      )
+      store.upsertFromEa(bundle.members, {
+        club: {
+          name: bundle.info?.name || store.club.name,
+          clubId: String(store.club.clubId),
+          currentDivision: bundle.season?.currentDivision || store.club.currentDivision,
+        },
+        ea: bundleToEa(bundle),
+      })
+    } catch {
+      /* o Radar segue com o que já estiver */
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   useEffect(() => {
     let live = true
@@ -105,7 +130,14 @@ export default function App() {
         <main className="main">
           <div className="page-wrap">
             {tab === 'stats' && <Estatisticas store={store} />}
-            {tab === 'radar' && <Radar store={store} />}
+            {tab === 'radar' && (
+              <Radar
+                key={store.club.lastSync || 'radar'}
+                store={store}
+                onSync={syncEa}
+                syncing={syncing || booting}
+              />
+            )}
             {tab === 'rivais' && <Rivais store={store} />}
             {tab === 'escalacao' && <Escalacao store={store} />}
           </div>

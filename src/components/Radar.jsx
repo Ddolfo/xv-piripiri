@@ -52,7 +52,7 @@ function VersusBar({ label, us, them }) {
   )
 }
 
-export default function Radar({ store }) {
+export default function Radar({ store, onSync, syncing }) {
   const [focusId, setFocusId] = useState(null)
   const [openMatch, setOpenMatch] = useState(null)
   const [openPlayer, setOpenPlayer] = useState(null)
@@ -60,7 +60,6 @@ export default function Radar({ store }) {
   const pulse = useMemo(() => pulseOf(matches), [matches])
   const board = useMemo(() => carryBoard(matches), [matches])
   const kit = store.ea?.info?.kit?.home || []
-
   const focus = matches.find((m) => m.id === focusId) || matches[0] || null
   const motm = motmOf(focus)
   const ratings = [...(focus?.us?.players || [])].sort(
@@ -116,6 +115,16 @@ export default function Radar({ store }) {
             Leitura da súmula da EA: notas, passes, desarmes, faltas, escanteios e quem
             carregou a sequência. Sem chute de posse ou xG.
           </p>
+        </div>
+        <div className="actions" style={{ marginTop: 0 }}>
+          <button
+            className="btn ghost"
+            type="button"
+            onClick={onSync}
+            disabled={syncing || !store.club.clubId}
+          >
+            {syncing ? 'Sincronizando…' : 'Atualizar da EA'}
+          </button>
         </div>
       </div>
 
