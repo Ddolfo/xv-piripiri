@@ -87,12 +87,13 @@ export function fixEaTree(value) {
 }
 
 async function getJson(path, params = {}) {
-  const url = new URL(path, window.location.origin)
+  const href = /^https?:\/\//i.test(path) ? path : new URL(path, window.location.origin).toString()
+  const url = new URL(href)
   Object.entries(params).forEach(([k, v]) => {
     if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, v)
   })
   const ctrl = new AbortController()
-  const timer = setTimeout(() => ctrl.abort(), 10000)
+  const timer = setTimeout(() => ctrl.abort(), 15000)
   try {
     const res = await fetch(url.toString(), { signal: ctrl.signal })
     if (!res.ok) {
@@ -151,6 +152,37 @@ export async function getMembersStats(clubId, platform = 'common-gen5') {
 
 export async function getMembersCareer(clubId, platform = 'common-gen5') {
   return getJson(`${BASE}/members/career/stats`, { platform, clubId })
+}
+
+export async function loadClubMembers(clubId, platform = 'common-gen5') {
+  const id = String(clubId)
+  const [membersPayload, careerPayload] = await Promise.all([
+    settled(getMembersStats(id, platform)),
+    settled(getMembersCareer(id, platform)),
+  ])
+  let members = []
+  let career = []
+  try {
+    members = normalizeMembers(membersPayload)
+  } catch {
+    members = []
+  }
+  try {
+    career = normalizeCareer(careerPayload)
+  } catch {
+    career = []
+  }
+  const careerByName = Object.fromEntries(
+    career.map((m) => [String(m.name || '').toLowerCase(), m]).filter(([k]) => k),
+  )
+  const merged = members.map((m) => ({
+    ...m,
+    career: careerByName[String(m.name || '').toLowerCase()] || null,
+  }))
+  if (!merged.length) {
+    career.forEach((c) => merged.push({ ...c, career: c }))
+  }
+  return merged
 }
 
 export async function getPlayoffAchievements(clubId, platform = 'common-gen5') {
@@ -286,13 +318,30 @@ export async function loadClubBundle(clubId, platform = 'common-gen5', clubName 
     settled(searchClubs(name, platform)),
   ])
 
-  const members = normalizeMembers(membersPayload)
-  const career = normalizeCareer(careerPayload)
-  const careerByName = Object.fromEntries(career.map((m) => [m.name.toLowerCase(), m]))
-  const builds = collectBuilds([league, playoff, friendly], id)
+  let members = []
+  let career = []
+  try {
+    members = normalizeMembers(membersPayload)
+  } catch {
+    members = []
+  }
+  try {
+    career = normalizeCareer(careerPayload)
+  } catch {
+    career = []
+  }
+  const careerByName = Object.fromEntries(
+    career.map((m) => [String(m.name || '').toLowerCase(), m]).filter(([k]) => k),
+  )
+  let builds = {}
+  try {
+    builds = collectBuilds([league, playoff, friendly], id)
+  } catch {
+    builds = {}
+  }
   const merged = members.map((m) => ({
     ...m,
-    career: careerByName[m.name.toLowerCase()] || null,
+    career: careerByName[String(m.name || '').toLowerCase()] || null,
     build: builds[(m.name || '').trim().toLowerCase()] || null,
   }))
   if (!merged.length) {
@@ -306,14 +355,34 @@ export async function loadClubBundle(clubId, platform = 'common-gen5', clubName 
   }
 
   const info = normalizeInfo(infoPayload, id)
-  const matches = [
-    ...normalizeMatches(league, id, 'leagueMatch'),
-    ...normalizeMatches(playoff, id, 'playoffMatch'),
-    ...normalizeMatches(friendly, id, 'friendlyMatch'),
-  ].sort((a, b) => b.timestamp - a.timestamp)
-  const overall = normalizeOverall(overallPayload, id)
-  const season = normalizeBoard(pickFromSearch(seasonList, id))
-  const board = normalizeBoard(pickFromSearch(boardList, id))
+  let matches = []
+  try {
+    matches = [
+      ...normalizeMatches(league, id, 'leagueMatch'),
+      ...normalizeMatches(playoff, id, 'playoffMatch'),
+      ...normalizeMatches(friendly, id, 'friendlyMatch'),
+    ].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+  } catch {
+    matches = []
+  }
+  let overall = null
+  let season = null
+  let board = null
+  try {
+    overall = normalizeOverall(overallPayload, id)
+  } catch {
+    overall = null
+  }
+  try {
+    season = normalizeBoard(pickFromSearch(seasonList, id))
+  } catch {
+    season = null
+  }
+  try {
+    board = normalizeBoard(pickFromSearch(boardList, id))
+  } catch {
+    board = null
+  }
   if (overall) {
     if (!overall.bestDivision) {
       overall.bestDivision = season?.bestDivision || board?.bestDivision || 0
@@ -374,6 +443,7 @@ function collectBuilds(payloads, clubId) {
       const roster = m.players?.[us] || {}
       const ts = num(m.timestamp)
       Object.values(roster).forEach((p) => {
+        if (!p || typeof p !== 'object') return
         const name = fixEaText(p.playername || p.name || '').trim()
         const key = name.toLowerCase()
         const id = num(p.archetypeid)
@@ -442,12 +512,15 @@ export function buildHistoryHint(build) {
 
 export function normalizeMembers(payload) {
   if (!payload) return []
-  const list =
+  let list =
     payload.members ||
     payload.memberList ||
     payload.players ||
     (Array.isArray(payload) ? payload : [])
-  return list.map((m) => {
+  if (!Array.isArray(list)) {
+    list = list && typeof list === 'object' ? Object.values(list) : []
+  }
+  return list.filter((m) => m && typeof m === 'object').map((m) => {
     const name = fixEaText(
       m.name || m.playerName || m.memberName || m.proName || m.gamertag || '',
     )
@@ -691,6 +764,7 @@ function normalizeMatchSide(clubId, clubs, players, aggregate) {
   const agg = aggregate?.[id] || {}
   const rosterObj = players?.[id] || {}
   const roster = Object.entries(rosterObj)
+    .filter(([, p]) => p && typeof p === 'object')
     .map(([pid, p]) => normalizeMatchPlayer(p, pid))
     .sort((a, b) => (b.rating || 0) - (a.rating || 0) || a.name.localeCompare(b.name, 'pt-BR'))
   const rated = roster.filter((p) => p.rating)

@@ -8,6 +8,7 @@ import {
   applyRecorte,
   bundleToEa,
   loadClubBundle,
+  loadClubMembers,
   pickClubId,
   pickClubName,
   pickCurrentDivision,
@@ -64,9 +65,22 @@ export default function App() {
           const seedMatches = String(id) === '14693' ? seed || [] : []
           store.mergeMatchHistory([...seedMatches, ...(store.ea?.matches || [])])
         }
+        const membersPromise = loadClubMembers(id, XV_CLUB.platform).then((members) => {
+          if (live && members.length) {
+            store.upsertFromEa(members, {
+              club: {
+                name: pickClubName(hit) || XV_CLUB.name,
+                clubId: id,
+                platform: XV_CLUB.platform,
+              },
+            })
+          }
+          return members
+        })
         const bundle = await loadClubBundle(id, XV_CLUB.platform, XV_CLUB.name)
+        await membersPromise
         if (!live) return
-        store.upsertFromEa(bundle.members, {
+        store.upsertFromEa(bundle.members.length ? bundle.members : await membersPromise, {
           club: {
             name: pickClubName(hit) || bundle.info?.name || XV_CLUB.name,
             clubId: id,
@@ -79,7 +93,18 @@ export default function App() {
           ea: bundleToEa(bundle),
         })
       } catch {
-        if (live) store.upsertFromEa([], { ea: bundleToEa(applyRecorte({ clubId: XV_CLUB.clubId })) })
+        try {
+          const id = XV_CLUB.clubId
+          const members = await loadClubMembers(id, XV_CLUB.platform)
+          if (live) {
+            store.upsertFromEa(members, {
+              club: { name: XV_CLUB.name, clubId: id, platform: XV_CLUB.platform },
+              ea: bundleToEa(applyRecorte({ clubId: id })),
+            })
+          }
+        } catch {
+          if (live) store.upsertFromEa([], { ea: bundleToEa(applyRecorte({ clubId: XV_CLUB.clubId })) })
+        }
       } finally {
         if (live) setBooting(false)
       }
