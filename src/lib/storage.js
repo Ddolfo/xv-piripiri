@@ -1,6 +1,6 @@
 import { applyRecorte, fixEaText, fixEaTree } from './eaApi'
 
-const KEY = 'xv-piripiri-coach-v4'
+const KEY = 'xv-piripiri-coach-v5'
 const STALE_CLUB_IDS = ['14693']
 
 const emptyEa = () =>

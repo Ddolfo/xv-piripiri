@@ -181,8 +181,9 @@ export default function Estatisticas({ store }) {
   const info = ea.info
   const recent = ea.recent
   const withStats = store.players.filter((p) => p.stats)
-  const divisionCode = season?.currentDivision || store.club.currentDivision
-  const peakCode = overall?.bestDivision
+  const divisionCode =
+    season?.currentDivision || store.club.currentDivision || overall?.bestDivision
+  const peakCode = overall?.bestDivision || season?.bestDivision
 
   const rankedPlayers = useMemo(
     () => sortSquad(store.players, sortKey, sortDir, view),
@@ -356,7 +357,11 @@ export default function Estatisticas({ store }) {
         <Kpi
           label="Divisão atual"
           value={divisionLabel(divisionCode)}
-          hint="Liga em curso"
+          hint={
+            overall?.winStreak
+              ? `${fmt(overall.winStreak)} vitórias seguidas`
+              : 'Liga em curso'
+          }
         />
         <Kpi
           label="Habilidade"

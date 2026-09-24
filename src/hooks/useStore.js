@@ -17,9 +17,17 @@ function keepLastEa(prev, next) {
   const nextId = next?.clubId ? String(next.clubId) : ''
   if (prevId && nextId && prevId !== nextId) return applyRecorte({ ...next, clubId: nextId })
   const out = { ...prev, ...next, clubId: nextId || prevId || null }
-  if (isHollowOverall(next.overall) && !isHollowOverall(prev?.overall)) out.overall = prev.overall
-  if (isHollowSeason(next.season) && !isHollowSeason(prev?.season)) out.season = prev.season
-  if (!next.board && prev?.board) out.board = prev.board
+  const nextGames = Number(next?.overall?.games) || 0
+  const prevGames = Number(prev?.overall?.games) || 0
+  if (!isHollowOverall(next.overall) && nextGames >= prevGames) {
+    out.overall = next.overall
+    out.season = next.season || null
+    if (next.board) out.board = next.board
+  } else {
+    if (isHollowOverall(next.overall) && !isHollowOverall(prev?.overall)) out.overall = prev.overall
+    if (isHollowSeason(next.season) && !isHollowSeason(prev?.season)) out.season = prev.season
+    if (!next.board && prev?.board) out.board = prev.board
+  }
   if (!next.info && prev?.info) out.info = prev.info
   if (!next.positionCount && prev?.positionCount) out.positionCount = prev.positionCount
   out.playoffs = Array.isArray(next.playoffs) ? next.playoffs : []

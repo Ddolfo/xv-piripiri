@@ -314,8 +314,24 @@ export async function loadClubBundle(clubId, platform = 'common-gen5', clubName 
   const overall = normalizeOverall(overallPayload, id)
   const season = normalizeBoard(pickFromSearch(seasonList, id))
   const board = normalizeBoard(pickFromSearch(boardList, id))
-  if (overall && !overall.bestDivision) {
-    overall.bestDivision = season?.bestDivision || board?.bestDivision || 0
+  if (overall) {
+    if (!overall.bestDivision) {
+      overall.bestDivision = season?.bestDivision || board?.bestDivision || 0
+    }
+    const form = (matches || []).map((m) => m.result).filter((r) => r === 'V' || r === 'E' || r === 'D')
+    if (form.length) overall.form = form
+    let streak = 0
+    for (const r of form) {
+      if (r === 'V') streak += 1
+      else break
+    }
+    if (streak > (overall.winStreak || 0)) overall.winStreak = streak
+    let unbeaten = 0
+    for (const r of form) {
+      if (r === 'V' || r === 'E') unbeaten += 1
+      else break
+    }
+    if (unbeaten > (overall.unbeatenStreak || 0)) overall.unbeatenStreak = unbeaten
   }
 
   return applyRecorte({
@@ -1118,7 +1134,7 @@ export function archetypeLabel(id) {
 
 /**
  * Código da EA: 1 = Elite, 2 = Divisão 1, 3 = Divisão 2, 4 = Divisão 3…
- * No FC 27 o XV (51895) está em currentDivision 3 = Divisão 2.
+ * No FC 27 o XV (51895) está em currentDivision 2 = Divisão 1.
  */
 export function divisionLabel(code) {
   const n = Number(code)
