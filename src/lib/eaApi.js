@@ -247,9 +247,58 @@ export function mergeMatchLists(...lists) {
     const old = map.get(id)
     const nextPlayers = m.us?.players?.length || 0
     const oldPlayers = old?.us?.players?.length || 0
-    map.set(id, nextPlayers >= oldPlayers ? m : old || m)
+    const chosen = nextPlayers >= oldPlayers ? m : old || m
+    const other = chosen === m ? old : m
+    map.set(id, {
+      ...chosen,
+      opponentDivision: chosen.opponentDivision || other?.opponentDivision,
+      opponentBestDivision: chosen.opponentBestDivision || other?.opponentBestDivision,
+    })
   })
   return [...map.values()].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+}
+
+async function attachOpponentDivisions(matches, platform = 'common-gen5') {
+  const list = matches || []
+  const unique = []
+  const seen = new Set()
+  list.forEach((m) => {
+    const id = String(m.opponentId || '')
+    if (!id || seen.has(id) || m.opponentDivision) return
+    seen.add(id)
+    unique.push({ id, name: m.opponent || '' })
+  })
+  const found = {}
+  for (let i = 0; i < unique.length; i += 4) {
+    const chunk = unique.slice(i, i + 4)
+    await Promise.all(
+      chunk.map(async (row) => {
+        if (!row.name) return
+        try {
+          const hits = await searchSeasonClubs(row.name, platform)
+          const hit =
+            (hits || []).find((c) => String(pickClubId(c)) === row.id) ||
+            (hits || []).find(
+              (c) => pickClubName(c).trim().toLowerCase() === row.name.trim().toLowerCase(),
+            )
+          if (!hit) return
+          const current = pickCurrentDivision(hit)
+          const best = num(hit.bestDivision)
+          found[row.id] = {
+            opponentDivision: current || null,
+            opponentBestDivision: best || null,
+          }
+        } catch {
+          /* rival sem busca */
+        }
+      }),
+    )
+  }
+  return list.map((m) => {
+    const extra = found[String(m.opponentId || '')]
+    if (!extra) return m
+    return { ...m, ...extra }
+  })
 }
 
 export function applyRecorte(bundle = {}, snap = recorteSnap) {
@@ -364,6 +413,11 @@ export async function loadClubBundle(clubId, platform = 'common-gen5', clubName 
     ].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
   } catch {
     matches = []
+  }
+  try {
+    matches = await attachOpponentDivisions(matches, platform)
+  } catch {
+    /* lista segue sem divisão do rival */
   }
   let overall = null
   let season = null

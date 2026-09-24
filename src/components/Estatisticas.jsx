@@ -558,7 +558,8 @@ export default function Estatisticas({ store }) {
         <section className="card">
           <h3>Últimos jogos do XV</h3>
           <p className="card-lead">
-            Só os 10 jogos mais recentes da EA. Clique numa partida para abrir a súmula.
+            Só os 10 jogos mais recentes da EA. A divisão do rival é a atual na EA, não a do dia
+            do jogo. Clique numa partida para abrir a súmula.
           </p>
           {recent ? (
             <div className="recent-strip">
@@ -604,9 +605,15 @@ export default function Estatisticas({ store }) {
                   <div>
                     <b>
                       {m.usGoals} × {m.themGoals} {m.opponent}
+                      {m.opponentDivision
+                        ? ` · ${divisionLabel(m.opponentDivision)}`
+                        : ''}
                     </b>
                     <small>
                       {MATCH_TYPE_LABEL[m.type] || m.type}
+                      {m.opponentDivision
+                        ? ` · ${divisionLabel(m.opponentDivision)} agora`
+                        : ''}
                       {m.timeAgo ? ` · ${timeAgoLabel(m.timeAgo)}` : ''}
                       {m.winnerByDnf ? ' · ganhou por W.O.' : ''}
                       {m.shots ? ` · ${m.shots} finalizações` : ''}

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { MATCH_TYPE_LABEL, POS_LINE_LABEL } from '../lib/eaApi'
+import { MATCH_TYPE_LABEL, POS_LINE_LABEL, divisionLabel } from '../lib/eaApi'
 import { LOGO_SRC } from '../lib/brand'
 import PlayerMark from './PlayerMark'
 
@@ -404,6 +404,7 @@ export default function PartidaPerfil({
               </b>
               <small>
                 {MATCH_TYPE_LABEL[m.type] || m.type}
+                {m.opponentDivision ? ` · ${divisionLabel(m.opponentDivision)}` : ''}
                 {m.timeAgo ? ` · ${timeAgoLabel(m.timeAgo)}` : ''}
               </small>
             </button>
@@ -420,6 +421,9 @@ export default function PartidaPerfil({
             </h2>
             <p>
               {MATCH_TYPE_LABEL[match.type] || match.type}
+              {match.opponentDivision
+                ? ` · ${divisionLabel(match.opponentDivision)} agora`
+                : ''}
               {match.timeAgo ? ` · ${timeAgoLabel(match.timeAgo)}` : ''}
               {us?.stadium ? ` · ${us.stadium}` : ''}
               {match.winnerByDnf ? ' · ganhou por W.O.' : ''}
