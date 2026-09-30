@@ -7,6 +7,8 @@ import {
   isHollowOverall,
   isHollowSeason,
   mergeMatchLists,
+  recorteHistoryMatches,
+  XV_CLUB,
 } from '../lib/eaApi'
 import { mergeHistory } from '../lib/rivals'
 import { loadState, saveState, uid } from '../lib/storage'
@@ -203,9 +205,12 @@ export function useStore() {
           ),
         },
         ea: keepLastEa(clubChanged ? {} : s.ea, extra.ea),
-        history: clubChanged
-          ? mergeHistory([], extra.ea?.matches)
-          : mergeHistory(s.history, extra.ea?.matches),
+        history: mergeHistory(
+          clubChanged ? [] : s.history,
+          extra.ea?.matches,
+          extra.ea?.rivalMatches,
+          String(nextId) === String(XV_CLUB.clubId) ? recorteHistoryMatches() : [],
+        ),
       }
     })
   }, [])

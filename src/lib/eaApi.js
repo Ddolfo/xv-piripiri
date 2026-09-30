@@ -301,6 +301,53 @@ async function attachOpponentDivisions(matches, platform = 'common-gen5') {
   })
 }
 
+function matchInvolvesClub(raw, clubId) {
+  const clubs = raw?.clubs
+  if (!clubs || typeof clubs !== 'object') return false
+  const id = String(clubId)
+  return Object.prototype.hasOwnProperty.call(clubs, id)
+}
+
+async function harvestOpponentMeetings(clubId, matches, platform = 'common-gen5') {
+  const us = String(clubId)
+  const ids = []
+  const seen = new Set()
+  ;(matches || []).forEach((m) => {
+    const oid = String(m.opponentId || '')
+    if (!oid || oid === us || seen.has(oid)) return
+    seen.add(oid)
+    ids.push(oid)
+  })
+  const jobs = []
+  ids.forEach((oid) => {
+    jobs.push({ oid, type: 'leagueMatch' })
+    jobs.push({ oid, type: 'friendlyMatch' })
+  })
+  const found = []
+  for (let i = 0; i < jobs.length; i += 4) {
+    const chunk = jobs.slice(i, i + 4)
+    const parts = await Promise.all(
+      chunk.map(async ({ oid, type }) => {
+        try {
+          const payload = await settled(getClubMatches(oid, type, platform, 10))
+          const involvingUs = (Array.isArray(payload) ? payload : []).filter((raw) =>
+            matchInvolvesClub(raw, us),
+          )
+          return involvingUs.length ? normalizeMatches(involvingUs, us, type) : []
+        } catch {
+          return []
+        }
+      }),
+    )
+    parts.forEach((rows) => found.push(...rows))
+  }
+  return found
+}
+
+export function recorteHistoryMatches(snap = recorteSnap) {
+  return Array.isArray(snap?.matches) ? snap.matches : []
+}
+
 export function applyRecorte(bundle = {}, snap = recorteSnap) {
   const liveId = String(bundle.clubId || '')
   const snapId = String(snap?.clubId || '')
@@ -414,10 +461,20 @@ export async function loadClubBundle(clubId, platform = 'common-gen5', clubName 
   } catch {
     matches = []
   }
+  let rivalMatches = []
   try {
-    matches = await attachOpponentDivisions(matches, platform)
+    const [withDiv, harvested] = await Promise.all([
+      attachOpponentDivisions(matches, platform),
+      harvestOpponentMeetings(id, matches, platform),
+    ])
+    matches = withDiv
+    rivalMatches = harvested
   } catch {
-    /* lista segue sem divisão do rival */
+    try {
+      matches = await attachOpponentDivisions(matches, platform)
+    } catch {
+      /* lista segue sem divisão do rival */
+    }
   }
   let overall = null
   let season = null
@@ -457,7 +514,7 @@ export async function loadClubBundle(clubId, platform = 'common-gen5', clubName 
     if (unbeaten > (overall.unbeatenStreak || 0)) overall.unbeatenStreak = unbeaten
   }
 
-  return applyRecorte({
+  const out = applyRecorte({
     clubId: id,
     members: merged,
     overall,
@@ -470,6 +527,8 @@ export async function loadClubBundle(clubId, platform = 'common-gen5', clubName 
     builds,
     positionCount: membersPayload?.positionCount || careerPayload?.positionCount || null,
   })
+  out.rivalMatches = mergeMatchLists(rivalMatches)
+  return out
 }
 
 export function bundleToEa(bundle) {
@@ -479,6 +538,7 @@ export function bundleToEa(bundle) {
     info: bundle.info,
     playoffs: bundle.playoffs,
     matches: bundle.matches,
+    rivalMatches: bundle.rivalMatches || [],
     recent: bundle.recent,
     season: bundle.season,
     board: bundle.board,

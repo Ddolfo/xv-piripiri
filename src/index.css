@@ -1954,6 +1954,48 @@ button.match-row:hover { border-color: var(--gold); }
   background: rgba(255, 77, 77, 0.14);
   color: #ff8a8a;
 }
+.rival-name-btn {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.rival-name-btn:hover b { color: var(--gold); }
+.rival-toggle {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 16px;
+  font-weight: 800;
+}
+.rival-matches {
+  list-style: none;
+  margin: 10px 0 4px;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.rival-matches li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.rival-matches .match-res {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  font-size: 11px;
+}
 
 @media (max-width: 1100px) {
   .rival-kpis { grid-template-columns: 1fr 1fr; }

@@ -13,6 +13,7 @@ import {
   pickClubName,
   pickCurrentDivision,
   pickXvClub,
+  recorteHistoryMatches,
   searchClubs,
   XV_CLUB,
 } from './lib/eaApi'
@@ -62,8 +63,9 @@ export default function App() {
         }
         const id = String(pickClubId(hit) || XV_CLUB.clubId)
         if (live) {
-          const seedMatches = String(id) === '14693' ? seed || [] : []
-          store.mergeMatchHistory([...seedMatches, ...(store.ea?.matches || [])])
+          const seedMatches = !seed.clubId || seed.clubId === id ? seed.matches || [] : []
+          const recorte = id === String(XV_CLUB.clubId) ? recorteHistoryMatches() : []
+          store.mergeMatchHistory([...seedMatches, ...recorte, ...(store.ea?.matches || [])])
         }
         const membersPromise = loadClubMembers(id, XV_CLUB.platform).then((members) => {
           if (live && members.length) {

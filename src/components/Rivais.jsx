@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { MATCH_TYPE_LABEL } from '../lib/eaApi'
 import { summarizeRivals } from '../lib/rivals'
 
 function fmt(n) {
@@ -28,9 +29,20 @@ const SORTS = [
   { key: 'name', label: 'Nome A–Z' },
 ]
 
+function when(ts) {
+  if (!ts) return ''
+  return new Date(ts * 1000).toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
 export default function Rivais({ store }) {
   const [sortKey, setSortKey] = useState('games')
   const [sortDir, setSortDir] = useState('desc')
+  const [openKey, setOpenKey] = useState('')
   const summary = useMemo(() => summarizeRivals(store.history || []), [store.history])
 
   const ranked = useMemo(() => {
@@ -62,8 +74,9 @@ export default function Rivais({ store }) {
         <div>
           <h2>Rivais do XV</h2>
           <p>
-            Histórico acumulado de confrontos. A EA só manda os 10 jogos mais recentes; o painel
-            guarda cada partida nova e soma com o arquivo do site.
+            Histórico acumulado de confrontos. A EA só manda os 10 jogos mais recentes de cada tipo;
+            o painel guarda cada partida nova, soma o arquivo do site e ainda busca na lista do rival
+            para não perder revanche.
           </p>
         </div>
       </div>
@@ -113,8 +126,8 @@ export default function Rivais({ store }) {
         <h3>Todos os adversários</h3>
         <p className="card-lead">
           {fmt(summary.total)} partida{summary.total === 1 ? '' : 's'} no arquivo · {fmt(summary.list.length)} time
-          {summary.list.length === 1 ? '' : 's'}. Cada sincronização com a EA acrescenta jogos novos, sem apagar os
-          antigos.
+          {summary.list.length === 1 ? '' : 's'}. Abra o adversário para ver cada placar. Cada sincronização
+          acrescenta jogos novos, sem apagar os antigos.
         </p>
         <div className="stats-filters">
           <span className="stats-filters-label">Ordenar</span>
@@ -146,30 +159,58 @@ export default function Rivais({ store }) {
                 </tr>
               </thead>
               <tbody>
-                {ranked.map((r) => (
-                  <tr key={r.key}>
-                    <td>
-                      <b>{r.name}</b>
-                      {summary.pato && r.key === summary.pato.key ? (
-                        <span className="pato-tag">
-                          <PatoIcon /> Pato
-                        </span>
-                      ) : null}
-                      {summary.algoz && r.key === summary.algoz.key && r.key !== summary.pato?.key ? (
-                        <span className="algoz-tag">Algoz</span>
-                      ) : null}
-                    </td>
-                    <td>{fmt(r.games)}</td>
-                    <td>{fmt(r.wins)}</td>
-                    <td>{fmt(r.draws)}</td>
-                    <td>{fmt(r.losses)}</td>
-                    <td>
-                      {fmt(r.gf)}–{fmt(r.ga)}
-                    </td>
-                    <td>{r.gd > 0 ? `+${fmt(r.gd)}` : fmt(r.gd)}</td>
-                    <td>{fmt(r.winPct)}%</td>
-                  </tr>
-                ))}
+                {ranked.map((r) => {
+                  const open = openKey === r.key
+                  return (
+                    <tr key={r.key} className={open ? 'rival-open' : ''}>
+                      <td>
+                        <button
+                          type="button"
+                          className="rival-name-btn"
+                          onClick={() => setOpenKey(open ? '' : r.key)}
+                          aria-expanded={open}
+                        >
+                          <b>{r.name}</b>
+                          {summary.pato && r.key === summary.pato.key ? (
+                            <span className="pato-tag">
+                              <PatoIcon /> Pato
+                            </span>
+                          ) : null}
+                          {summary.algoz && r.key === summary.algoz.key && r.key !== summary.pato?.key ? (
+                            <span className="algoz-tag">Algoz</span>
+                          ) : null}
+                          <span className="rival-toggle">{open ? '–' : '+'}</span>
+                        </button>
+                        {open && r.matches?.length ? (
+                          <ul className="rival-matches">
+                            {r.matches.map((m) => (
+                              <li key={m.id}>
+                                <span className={`match-res ${(m.result || '').toLowerCase()}`}>
+                                  {m.result || '—'}
+                                </span>
+                                <span>
+                                  {fmt(m.usGoals)} × {fmt(m.themGoals)}
+                                </span>
+                                <span>{MATCH_TYPE_LABEL[m.type] || m.type || 'Jogo'}</span>
+                                <span>{when(m.timestamp)}</span>
+                                {m.winnerByDnf ? <span>W.O.</span> : null}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </td>
+                      <td>{fmt(r.games)}</td>
+                      <td>{fmt(r.wins)}</td>
+                      <td>{fmt(r.draws)}</td>
+                      <td>{fmt(r.losses)}</td>
+                      <td>
+                        {fmt(r.gf)}–{fmt(r.ga)}
+                      </td>
+                      <td>{r.gd > 0 ? `+${fmt(r.gd)}` : fmt(r.gd)}</td>
+                      <td>{fmt(r.winPct)}%</td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>

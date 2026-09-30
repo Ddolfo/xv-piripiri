@@ -40,11 +40,14 @@ export function mergeHistory(...lists) {
 export async function loadSeedHistory() {
   try {
     const res = await fetch(`${import.meta.env.BASE_URL}historico-rivais.json`)
-    if (!res.ok) return []
+    if (!res.ok) return { clubId: '', matches: [] }
     const data = await res.json()
-    return Array.isArray(data?.matches) ? data.matches : []
+    return {
+      clubId: String(data?.clubId || ''),
+      matches: Array.isArray(data?.matches) ? data.matches : [],
+    }
   } catch {
-    return []
+    return { clubId: '', matches: [] }
   }
 }
 
@@ -69,6 +72,7 @@ export function summarizeRivals(history) {
         gf: 0,
         ga: 0,
         lastTs: 0,
+        matches: [],
       }
     }
     const r = by[key]
@@ -81,11 +85,23 @@ export function summarizeRivals(history) {
     else if (m.result === 'E') r.draws += 1
     else if (m.result === 'D') r.losses += 1
     r.lastTs = Math.max(r.lastTs, Number(m.timestamp) || 0)
+    r.matches.push({
+      id: m.id,
+      type: m.type || '',
+      timestamp: Number(m.timestamp) || 0,
+      usGoals: Number(m.usGoals) || 0,
+      themGoals: Number(m.themGoals) || 0,
+      result: m.result === 'V' || m.result === 'E' || m.result === 'D' ? m.result : '',
+      winnerByDnf: Boolean(m.winnerByDnf),
+    })
   })
 
   const list = Object.values(by)
     .map((r) => ({
       ...r,
+      matches: [...(r.matches || [])].sort(
+        (a, b) => (b.timestamp || 0) - (a.timestamp || 0) || String(b.id).localeCompare(String(a.id)),
+      ),
       diff: r.wins - r.losses,
       gd: r.gf - r.ga,
       winPct: r.games ? Math.round((r.wins / r.games) * 100) : 0,
