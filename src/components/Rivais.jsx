@@ -20,6 +20,8 @@ function PatoIcon() {
   )
 }
 
+const PAGE_SIZE = 10
+
 const SORTS = [
   { key: 'games', label: 'Mais jogos' },
   { key: 'wins', label: 'Mais vitórias' },
@@ -43,6 +45,7 @@ export default function Rivais({ store }) {
   const [sortKey, setSortKey] = useState('games')
   const [sortDir, setSortDir] = useState('desc')
   const [openKey, setOpenKey] = useState('')
+  const [page, setPage] = useState(0)
   const summary = useMemo(() => summarizeRivals(store.history || []), [store.history])
 
   const ranked = useMemo(() => {
@@ -59,13 +62,27 @@ export default function Rivais({ store }) {
     })
   }, [summary.list, sortKey, sortDir])
 
+  const pageCount = Math.max(1, Math.ceil(ranked.length / PAGE_SIZE))
+  const safePage = Math.min(Math.max(0, page), pageCount - 1)
+  const pageRows = ranked.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE)
+  const from = ranked.length ? safePage * PAGE_SIZE + 1 : 0
+  const to = Math.min(ranked.length, safePage * PAGE_SIZE + pageRows.length)
+
   function applySort(key) {
     if (key === sortKey) {
       setSortDir((d) => (d === 'desc' ? 'asc' : 'desc'))
-      return
+    } else {
+      setSortKey(key)
+      setSortDir(key === 'name' ? 'asc' : 'desc')
     }
-    setSortKey(key)
-    setSortDir(key === 'name' ? 'asc' : 'desc')
+    setPage(0)
+    setOpenKey('')
+  }
+
+  function goPage(next) {
+    const n = Math.min(Math.max(0, next), pageCount - 1)
+    setPage(n)
+    setOpenKey('')
   }
 
   return (
@@ -159,7 +176,7 @@ export default function Rivais({ store }) {
                 </tr>
               </thead>
               <tbody>
-                {ranked.map((r) => {
+                {pageRows.map((r) => {
                   const open = openKey === r.key
                   return (
                     <tr key={r.key} className={open ? 'rival-open' : ''}>
@@ -213,6 +230,42 @@ export default function Rivais({ store }) {
                 })}
               </tbody>
             </table>
+          </div>
+        ) : null}
+        {ranked.length ? (
+          <div className="rival-pager" role="navigation" aria-label="Páginas de adversários">
+            <span className="rival-pager-status">
+              {fmt(from)}–{fmt(to)} de {fmt(ranked.length)} · {fmt(PAGE_SIZE)} por página
+            </span>
+            <div className="rival-pager-btns">
+              <button
+                type="button"
+                className="filter-chip"
+                disabled={safePage === 0}
+                onClick={() => goPage(safePage - 1)}
+              >
+                Anterior
+              </button>
+              {Array.from({ length: pageCount }, (_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  className={`filter-chip${i === safePage ? ' active' : ''}`}
+                  aria-current={i === safePage ? 'page' : undefined}
+                  onClick={() => goPage(i)}
+                >
+                  {i + 1}
+                </button>
+              ))}
+              <button
+                type="button"
+                className="filter-chip"
+                disabled={safePage >= pageCount - 1}
+                onClick={() => goPage(safePage + 1)}
+              >
+                Próxima
+              </button>
+            </div>
           </div>
         ) : (
           <div className="notice">
