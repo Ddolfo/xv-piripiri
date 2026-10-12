@@ -16,6 +16,7 @@ import {
 } from '../lib/eaApi'
 import { loadSharedHistory } from '../lib/rivals'
 import JogadorPerfil from './JogadorPerfil'
+import Matchday from './Matchday'
 import PartidaPerfil from './PartidaPerfil'
 import PlayerMark from './PlayerMark'
 
@@ -120,16 +121,6 @@ function Fact({ label, value, hint }) {
   )
 }
 
-function Kpi({ label, value, hint }) {
-  return (
-    <div className="kpi">
-      <span>{label}</span>
-      <b>{value}</b>
-      {hint ? <small className="kpi-hint">{hint}</small> : null}
-    </div>
-  )
-}
-
 function KitRow({ label, colors }) {
   if (!colors?.length) return null
   return (
@@ -198,6 +189,11 @@ export default function Estatisticas({ store }) {
     const filtered = matchFilter === 'all' ? list : list.filter((m) => m.type === matchFilter)
     return filtered.slice(0, 10)
   }, [ea.matches, matchFilter])
+
+  const latestMatch = useMemo(
+    () => [...(ea.matches || [])].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))[0] || null,
+    [ea.matches],
+  )
 
   const teamTotals = useMemo(() => {
     const rows = store.players.filter((p) => p.stats)
@@ -334,20 +330,16 @@ export default function Estatisticas({ store }) {
 
   return (
     <>
-      <div className="topbar">
-        <div>
-          <h2>Estatísticas do clube</h2>
-          <p>
-            Números do FC 27 para o {store.club.name || 'XV de PiriPiri'}. Clique em um jogador
-            para abrir a ficha.
-          </p>
-        </div>
-        <div className="actions" style={{ marginTop: 0 }}>
-          <button className="btn ghost" onClick={syncSaved} disabled={loading || !store.club.clubId}>
-            {loading ? 'Sincronizando…' : 'Atualizar da EA'}
-          </button>
-        </div>
-      </div>
+      <Matchday
+        club={store.club}
+        overall={overall}
+        latest={latestMatch}
+        divisionCode={divisionCode}
+        peakCode={peakCode}
+        loading={loading}
+        onSync={syncSaved}
+        onOpenMatch={setOpenMatch}
+      />
 
       {ea.recorteAt ? (
         <div className="notice" style={{ marginBottom: 18 }}>
@@ -355,63 +347,6 @@ export default function Estatisticas({ store }) {
           recém-jogado ainda não veio no endpoint. O painel mostra o recorte de{' '}
           {new Date(ea.recorteAt).toLocaleString('pt-BR')} e o elenco ao vivo. A súmula do playoff
           aparece quando a EA reabrir esses endpoints.
-        </div>
-      ) : null}
-
-      <div className="kpi-row kpi-row-6">
-        <Kpi
-          label="Divisão atual"
-          value={divisionLabel(divisionCode)}
-          hint={
-            overall?.winStreak
-              ? `${fmt(overall.winStreak)} vitórias seguidas`
-              : 'Liga em curso'
-          }
-        />
-        <Kpi
-          label="Habilidade"
-          value={overall ? fmt(overall.skillRating) : '—'}
-          hint="Nota da EA para o clube"
-        />
-        <Kpi
-          label="Carreira V-E-D"
-          value={overall ? record(overall.wins, overall.ties, overall.losses) : '—'}
-          hint={overall ? `${fmt(overall.games)} jogos` : ''}
-        />
-        <Kpi
-          label="Melhor divisão"
-          value={divisionLabel(peakCode)}
-          hint={
-            overall?.bestFinishGroup
-              ? `Pico da carreira · ${groupFinishLabel(overall.bestFinishGroup)}`
-              : 'Pico da carreira'
-          }
-        />
-        <Kpi
-          label="Saldo de gols"
-          value={overall ? fmt(overall.goalDiff) : '—'}
-          hint={overall ? `${fmt(overall.goals)} marcados · ${fmt(overall.goalsAgainst)} sofridos` : ''}
-        />
-        <Kpi
-          label="Aproveitamento"
-          value={overall ? `${overall.winPct}%` : '—'}
-          hint="Vitórias na carreira"
-        />
-      </div>
-
-      {overall?.form?.length ? (
-        <div className="form-strip">
-          <span>Últimos resultados da EA</span>
-          <div className="form-dots">
-            {overall.form.map((r, i) => (
-              <i key={i} className={`form-dot ${r.toLowerCase()}`}>
-                {r}
-              </i>
-            ))}
-          </div>
-          <span>
-            Sequência: {fmt(overall.winStreak)} vitórias · {fmt(overall.unbeatenStreak)} sem derrota
-          </span>
         </div>
       ) : null}
 

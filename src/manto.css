@@ -1,0 +1,477 @@
+/* Repaginação "manto": carregado depois de index.css e sobrescreve o visual base.
+   Display: Big Shoulders Display (placar de estádio). Texto: Schibsted Grotesk. */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+:where(button, a, input, select, summary):focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+h1, h2, h3, .brand { font-family: var(--font-display); font-weight: 800; }
+
+/* ---------- Cabeçalho ---------- */
+
+.top-nav {
+  background: rgba(13, 12, 10, 0.94);
+  border-bottom: 1px solid var(--line-soft);
+}
+.top-nav-inner { gap: 28px; padding-bottom: 0; align-items: stretch; }
+.brand-block { padding-bottom: 12px; }
+.brand-block img { width: 52px; height: 52px; filter: none; }
+.brand-block h1 {
+  font-size: 26px;
+  line-height: 0.95;
+  letter-spacing: 0.01em;
+}
+.brand-block p {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+}
+
+.nav { gap: 2px; align-self: stretch; align-items: stretch; flex-wrap: nowrap; }
+.nav button,
+.nav button:hover,
+.nav button.active {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: inset 0 -3px 0 transparent;
+  color: var(--muted);
+  padding: 0 14px;
+  transition: color 0.15s, box-shadow 0.15s;
+}
+.nav button:hover { color: var(--ink); }
+.nav button.active {
+  color: var(--gold);
+  box-shadow: inset 0 -3px 0 var(--gold);
+}
+.club-switch button {
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.panel-nav button {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.panel-nav { padding-left: 22px; border-left: 1px solid var(--line-soft); }
+.top-meta { align-self: center; padding-bottom: 12px; font-size: 12px; }
+.top-meta span + span::before { color: var(--muted); }
+
+/* ---------- Base de componentes ---------- */
+
+.main { padding-top: 26px; }
+
+.topbar h2 {
+  font-size: 44px;
+  line-height: 0.95;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+}
+.topbar p { max-width: 70ch; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+  box-shadow: none;
+  padding: 22px;
+}
+.card h3 {
+  margin: 0 0 6px;
+  color: var(--ink);
+  font-size: 26px;
+  line-height: 1;
+  letter-spacing: 0.01em;
+}
+.card-lead { margin: 0 0 18px; font-size: 13px; max-width: 72ch; }
+
+.btn {
+  background: var(--gold);
+  border: 1px solid var(--gold);
+  border-radius: 8px;
+  color: var(--bg-0);
+  font-weight: 700;
+  transition: background 0.15s, color 0.15s;
+}
+.btn:hover:not(:disabled) { background: var(--gold-hi); }
+.btn.ghost { background: transparent; color: var(--gold); border-color: var(--line); }
+.btn.ghost:hover:not(:disabled) { background: rgba(255, 198, 26, 0.1); border-color: var(--gold); }
+
+.filter-chip {
+  background: transparent;
+  border: 1px solid var(--line-soft);
+  color: var(--muted);
+  font-weight: 600;
+}
+.filter-chip:hover { color: var(--ink); border-color: var(--muted); }
+.filter-chip.active {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: var(--bg-0);
+}
+.filter-chip:disabled { background: transparent; }
+.stats-filters-label { letter-spacing: 0.1em; }
+
+.notice {
+  background: var(--surface-2);
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+}
+
+/* Resultado: vitória na cor do manto, empate em giz, derrota no cartão vermelho. */
+.match-res,
+.form-dot {
+  border-radius: 4px;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 900;
+}
+.match-res.v,
+.form-dot.v { background: var(--gold); color: var(--bg-0); }
+.match-res.e,
+.form-dot.e { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1.5px rgba(242, 237, 223, 0.45); }
+.match-res.d,
+.form-dot.d { background: var(--danger); color: var(--ink); }
+
+.match-list { gap: 0; }
+.match-row {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--line-soft);
+  border-radius: 0;
+  padding: 12px 4px;
+  transition: background 0.15s;
+}
+.match-list .match-row:last-child { border-bottom: 0; }
+button.match-row:hover { background: rgba(255, 198, 26, 0.05); }
+.match-row b { font-size: 15px; font-weight: 600; }
+.match-row small { font-size: 12px; }
+
+.club-facts { gap: 18px 20px; }
+.club-facts dt { font-size: 11px; letter-spacing: 0.1em; }
+.club-facts dd {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+.club-facts dd .fact-hint,
+.ledger small {
+  font-variant-numeric: normal;
+}
+.club-facts dd .fact-hint { font-family: var(--font-body); font-size: 12px; font-weight: 500; line-height: 1.35; }
+
+.recent-strip b,
+.finish-row b { color: var(--gold); }
+.search-summary { font-family: var(--font-display); font-size: 20px; letter-spacing: 0.02em; }
+
+.stats-table th { letter-spacing: 0.08em; }
+.stats-table td { border-bottom-color: var(--line-soft); }
+.stats-table tr.rank-top td { background: rgba(255, 198, 26, 0.06); }
+.stats-table tr.rank-top td:first-child { box-shadow: inset 3px 0 0 var(--gold); }
+.stats-row-click:hover td { background: rgba(255, 198, 26, 0.08); }
+.rank-index { font-family: var(--font-display); font-size: 16px; }
+
+/* ---------- Rivais ---------- */
+
+.rival-kpis { gap: 14px; }
+.rival-card {
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-top: 4px solid var(--line-soft);
+  border-radius: 12px;
+  padding: 18px;
+}
+.rival-card.pato { background: var(--surface); border-color: var(--line-soft); border-top-color: var(--gold); }
+.rival-card.algoz { border-top-color: var(--danger); }
+.rival-card-kicker { font-family: var(--font-body); font-weight: 700; letter-spacing: 0.14em; }
+.rival-card.algoz .rival-card-kicker { color: var(--danger); }
+.rival-card b {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+/* ---------- Fichas internas: partida e jogador ---------- */
+
+.player-nav,
+.player-frame {
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+}
+.player-nav nav button.active,
+.stat-hero-item.gold {
+  background: rgba(255, 198, 26, 0.08);
+  border-color: var(--gold);
+}
+.player-tabs button.active {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: var(--bg-0);
+}
+.player-hero h2 { font-size: 34px; line-height: 1; text-transform: uppercase; }
+.stat-hero-item b,
+.stat-box-value,
+.player-kpis b,
+.dash-fact b {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+.stat-hero-item b { font-size: 56px; line-height: 0.95; }
+.stat-box-value { font-size: 32px; }
+
+/* Na súmula: nosso lado em ouro, o rival em giz. */
+.stat-ring-fg { stroke: var(--gold); }
+.stat-ring.away .stat-ring-fg { stroke: rgba(242, 237, 223, 0.7); }
+.ea-row-side.us i { background: var(--gold); }
+.ea-row-side.them i { background: rgba(242, 237, 223, 0.7); }
+.ea-row-side.us b { color: var(--gold); }
+
+/* ---------- Topo: placar + manto ---------- */
+
+.matchday {
+  position: relative;
+  margin-bottom: 22px;
+  padding: 22px 28px 0;
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.matchday-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.eyebrow {
+  color: var(--gold);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.matchday-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(260px, 1fr);
+  align-items: center;
+  gap: 48px;
+  margin: 10px 0 26px;
+}
+
+.placar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px 22px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.placar.empty { cursor: default; grid-template-columns: 1fr; }
+.placar-team {
+  font-family: var(--font-display);
+  font-size: clamp(24px, 2.6vw, 40px);
+  font-weight: 800;
+  line-height: 0.95;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+.placar-team.us { text-align: right; }
+.placar.empty .placar-team.us { text-align: left; }
+.placar-score {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+}
+.placar-score b {
+  font-size: clamp(72px, 8.5vw, 132px);
+  font-weight: 900;
+  line-height: 0.82;
+}
+.placar-score i { color: var(--muted); font-size: 40px; font-style: normal; font-weight: 700; }
+.placar.v .placar-score b:first-child { color: var(--gold); }
+.placar.d .placar-score b:last-child { color: var(--danger); }
+.placar-foot {
+  grid-column: 1 / -1;
+  justify-self: center;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 4px;
+  transition: color 0.15s, text-decoration-color 0.15s;
+}
+.placar.empty .placar-foot { justify-self: start; text-decoration: none; }
+.placar:not(.empty):hover .placar-foot {
+  color: var(--ink);
+  text-decoration-color: var(--gold);
+}
+
+.manto { margin: 0; display: flex; flex-direction: column; gap: 14px; }
+.manto-stripes {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: clamp(8px, 1.1vw, 16px);
+  height: clamp(120px, 11vw, 168px);
+  max-width: 460px;
+}
+.stripe {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 8px;
+  border-radius: 3px;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-style: normal;
+  font-weight: 900;
+  transform-origin: bottom;
+  animation: stripe-rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+.stripe.v { background: var(--gold); color: var(--bg-0); }
+.stripe.e { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 2px rgba(242, 237, 223, 0.35); }
+.stripe.d { background: var(--danger); color: var(--ink); }
+.stripe:last-child { outline: 2px solid var(--ink); outline-offset: 3px; }
+@keyframes stripe-rise {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+.manto figcaption { display: flex; flex-direction: column; gap: 2px; }
+.manto figcaption b {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+}
+.manto figcaption span { color: var(--muted); font-size: 12px; }
+
+.ledger {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  margin: 0 -28px;
+  border-top: 1px solid var(--line-soft);
+}
+.ledger > div { padding: 16px 20px 18px; border-left: 1px solid var(--line-soft); }
+.ledger > div:first-child { border-left: 0; padding-left: 28px; }
+.ledger dt { color: var(--muted); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; }
+.ledger dd {
+  margin: 4px 0 0;
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.ledger small { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .stripe { animation: none; }
+  .nav button, .btn, .placar-foot, .match-row { transition: none; }
+}
+
+@media (max-width: 1100px) {
+  .top-nav-inner { gap: 0 12px; padding-bottom: 0; }
+  .brand-block { padding-bottom: 6px; }
+  .nav { width: 100%; }
+  .nav button { min-height: 44px; }
+  .panel-nav { padding-left: 0; border-left: 0; border-top: 1px solid var(--line-soft); }
+  .top-meta { padding: 8px 0 10px; }
+  .matchday-body { grid-template-columns: 1fr; gap: 26px; }
+  .ledger { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ledger > div:nth-child(3n + 1) { border-left: 0; padding-left: 28px; }
+  .ledger > div:nth-child(n + 4) { border-top: 1px solid var(--line-soft); }
+}
+
+@media (max-width: 720px) {
+  .brand-block h1 { font-size: 22px; }
+  .club-switch button { font-size: 17px; padding: 0 6px; }
+  .topbar h2 { font-size: 34px; }
+  .card { padding: 16px; }
+  .card h3 { font-size: 23px; }
+  .club-facts dd { font-size: 22px; }
+
+  .top-meta { display: none; }
+  .brand-block { padding-bottom: 4px; }
+
+  /* Botão de atualizar desce para o fim do bloco, para não cortar o placar. */
+  .matchday {
+    display: flex;
+    flex-direction: column;
+    padding: 16px 16px 0;
+    border-radius: 12px;
+    margin-bottom: 16px;
+  }
+  .matchday-top { display: contents; }
+  .matchday-top .btn { order: 3; width: 100%; margin: 14px 0 16px; }
+  .matchday-body { margin: 14px 0 20px; gap: 22px; }
+
+  /* No celular o placar vira o letreiro de TV: um time por linha, gols à direita. */
+  .placar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: 'us s1' 'them s2' 'foot foot';
+    gap: 6px 16px;
+  }
+  .placar-score { display: contents; }
+  .placar-score i { display: none; }
+  .placar-score b { font-size: 60px; line-height: 0.9; text-align: right; }
+  .placar-score b:first-child { grid-area: s1; }
+  .placar-score b:last-child { grid-area: s2; }
+  .placar-team { font-size: 26px; }
+  .placar-team.us { grid-area: us; text-align: left; }
+  .placar-team.them { grid-area: them; }
+  .placar-foot { grid-area: foot; justify-self: start; text-decoration-color: var(--line); }
+  .placar.empty { grid-template-areas: 'us' 'foot'; }
+
+  .manto-stripes { height: 104px; gap: 7px; max-width: none; }
+  .stripe { font-size: 13px; padding-bottom: 6px; }
+  .manto figcaption b { font-size: 24px; }
+
+  .ledger { grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0 -16px; }
+  .ledger > div,
+  .ledger > div:first-child,
+  .ledger > div:nth-child(3n + 1) { padding: 12px 16px 14px; border-left: 0; border-top: 1px solid var(--line-soft); }
+  .ledger > div:nth-child(1),
+  .ledger > div:nth-child(2) { border-top: 0; }
+  .ledger > div:nth-child(even) { border-left: 1px solid var(--line-soft); }
+  .ledger dd { font-size: 26px; }
+
+  .rival-card b { font-size: 26px; }
+  .player-hero h2 { font-size: 26px; }
+  .stat-hero-item b { font-size: 38px; }
+  .stat-box-value { font-size: 26px; }
+}
