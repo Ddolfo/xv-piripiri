@@ -1,3 +1,5 @@
+import { EA_HOST } from './eaApi'
+
 export function compactMatch(m) {
   if (!m) return null
   const id = String(m.id || '')
@@ -48,6 +50,19 @@ export async function loadSeedHistory() {
     }
   } catch {
     return { clubId: '', matches: [] }
+  }
+}
+
+// Histórico de jogos que o worker acumula para todos os visitantes.
+export async function loadSharedHistory(clubId, { fresh = false } = {}) {
+  try {
+    const qs = fresh ? '?fresh=1' : ''
+    const res = await fetch(`${EA_HOST}/shared/history/${clubId}${qs}`, { cache: 'no-store' })
+    if (!res.ok) return []
+    const data = await res.json()
+    return Array.isArray(data?.matches) ? data.matches : []
+  } catch {
+    return []
   }
 }
 

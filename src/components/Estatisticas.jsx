@@ -14,6 +14,7 @@ import {
   pickCurrentDivision,
   searchClubs,
 } from '../lib/eaApi'
+import { loadSharedHistory } from '../lib/rivals'
 import JogadorPerfil from './JogadorPerfil'
 import PartidaPerfil from './PartidaPerfil'
 import PlayerMark from './PlayerMark'
@@ -247,7 +248,11 @@ export default function Estatisticas({ store }) {
     setError('')
     setStatus(`Importando dados do clube ${clubId}…`)
     try {
-      const bundle = await loadClubBundle(clubId, platform, clubName || query)
+      const [bundle, shared] = await Promise.all([
+        loadClubBundle(clubId, platform, clubName || query),
+        loadSharedHistory(clubId, { fresh: true }),
+      ])
+      if (shared.length) store.mergeMatchHistory(shared)
       store.setClub({
         name: clubName || extra.name || query || store.club.name,
         clubId: String(clubId),

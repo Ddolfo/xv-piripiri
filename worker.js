@@ -1,6 +1,7 @@
 import { DraftEngine } from './src/draft/engine.js'
 import { handleDraftRequest } from './src/draft/http.js'
 import { createDurableStore, createMemoryStore } from './src/draft/store.js'
+import { handleShared, proxyEa, pullAllClubs } from './worker-ea.js'
 
 export class DraftRoom {
   constructor(ctx, env) {
@@ -37,23 +38,12 @@ export class DraftRoom {
 
 const memoryFallback = createMemoryStore()
 
-const EA_HEADERS = {
-  accept: 'application/json',
-  'accept-language': 'en-US,en;q=0.9',
-  'sec-ch-ua': '"Google Chrome";v="141", "Not?A_Brand";v="8", "Chromium";v="141"',
-  'sec-ch-ua-mobile': '?0',
-  'sec-ch-ua-platform': '"Windows"',
-  'sec-fetch-dest': 'empty',
-  'sec-fetch-mode': 'cors',
-  'sec-fetch-site': 'same-origin',
-  origin: 'https://proclubs.ea.com',
-  referer: 'https://proclubs.ea.com/',
-  'user-agent':
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36',
-}
-
 export default {
-  async fetch(request, env) {
+  async scheduled(_event, env, ctx) {
+    ctx.waitUntil(pullAllClubs(env))
+  },
+
+  async fetch(request, env, ctx) {
     const url = new URL(request.url)
 
     if (request.method === 'OPTIONS' && url.pathname.startsWith('/ea')) {
@@ -120,66 +110,12 @@ export default {
       return handleDraftRequest(request, engine)
     }
 
+    if (url.pathname.startsWith('/shared/')) {
+      return handleShared(request, url, env)
+    }
+
     if (url.pathname === '/ea' || url.pathname.startsWith('/ea/')) {
-      const target = new URL(
-        `${url.pathname.replace(/^\/ea/, '')}${url.search}`,
-        'https://proclubs.ea.com',
-      )
-      // A EA (Akamai) devolve 403/429 de vez em quando para o IP da Cloudflare:
-      // tenta de novo e, se continuar barrado, serve a última resposta boa guardada.
-      const staleKey = new Request(`https://ea-stale.cache${target.pathname}${target.search}`)
-      const cache = caches.default
-      let upstream = null
-      for (let attempt = 0; attempt < 3; attempt += 1) {
-        if (attempt) await new Promise((r) => setTimeout(r, 400 * attempt))
-        try {
-          upstream = await fetch(target.toString(), {
-            method: 'GET',
-            headers: EA_HEADERS,
-            redirect: 'follow',
-          })
-        } catch {
-          upstream = null
-          continue
-        }
-        if (upstream.ok || ![403, 429, 500, 502, 503, 504].includes(upstream.status)) break
-      }
-      const cors = { 'access-control-allow-origin': '*' }
-      if (upstream?.ok) {
-        const body = await upstream.arrayBuffer()
-        const contentType = upstream.headers.get('content-type') || 'application/json; charset=utf-8'
-        await cache.put(
-          staleKey,
-          new Response(body.slice(0), {
-            headers: { 'content-type': contentType, 'cache-control': 'public, max-age=86400' },
-          }),
-        )
-        return new Response(body, {
-          status: upstream.status,
-          headers: { 'content-type': contentType, ...cors, 'cache-control': 'public, max-age=20' },
-        })
-      }
-      const stale = await cache.match(staleKey)
-      if (stale) {
-        return new Response(stale.body, {
-          status: 200,
-          headers: {
-            'content-type': stale.headers.get('content-type') || 'application/json',
-            ...cors,
-            'cache-control': 'no-store',
-            'x-ea-stale': '1',
-          },
-        })
-      }
-      const body = upstream ? await upstream.arrayBuffer() : '{"error":"EA indisponível"}'
-      return new Response(body, {
-        status: upstream?.status || 502,
-        headers: {
-          'content-type': upstream?.headers.get('content-type') || 'application/json',
-          ...cors,
-          'cache-control': 'no-store',
-        },
-      })
+      return proxyEa(url, env, ctx)
     }
 
     return env.ASSETS.fetch(request)

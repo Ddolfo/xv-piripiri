@@ -19,7 +19,9 @@ import {
   searchClubs,
   XV_CLUB,
 } from './lib/eaApi'
-import { loadSeedHistory } from './lib/rivals'
+import { loadSeedHistory, loadSharedHistory } from './lib/rivals'
+
+const SHARED_POLL_MS = 5 * 60 * 1000
 
 const VIEW_KEY = 'xv-active-view'
 
@@ -72,6 +74,9 @@ async function hydrateClub(def, store, live) {
     const seedMatches = !seed.clubId || seed.clubId === id ? seed.matches || [] : []
     const recorte = isXvClubId(id) ? recorteHistoryMatches() : []
     store.mergeMatchHistory([...seedMatches, ...recorte])
+    loadSharedHistory(id).then((shared) => {
+      if (live.current && shared.length) store.mergeMatchHistory(shared)
+    })
   }
   const membersPromise = loadClubMembers(id, def.platform).then((members) => {
     if (live.current && members.length) {
@@ -139,8 +144,14 @@ export default function App() {
     }).finally(() => {
       if (live.current) setBooting(false)
     })
+    const poll = setInterval(() => {
+      loadSharedHistory(def.clubId).then((shared) => {
+        if (live.current && shared.length) store.mergeMatchHistory(shared)
+      })
+    }, SHARED_POLL_MS)
     return () => {
       live.current = false
+      clearInterval(poll)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view])

@@ -1,16 +1,27 @@
 name = "xv-piripiri"
 main = "worker.js"
 compatibility_date = "2026-08-28"
+account_id = "357606f433e6744dcf9ef8cf9d66459e"
 
 [assets]
 directory = "./dist"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
 
+# Guarda a última resposta boa da EA e o histórico compartilhado de jogos.
+[[kv_namespaces]]
+binding = "XV_KV"
+id = "d5bd0fd62d05444982d6ffc4d55c8ef4"
+
+# Puxa os jogos da EA a cada 30 min, mesmo sem ninguém no site.
+[triggers]
+crons = ["*/30 * * * *"]
+
 [[durable_objects.bindings]]
 name = "DRAFT"
 class_name = "DraftRoom"
 
+# Plano grátis só aceita Durable Object com SQLite.
 [[migrations]]
 tag = "v1"
-new_classes = ["DraftRoom"]
+new_sqlite_classes = ["DraftRoom"]

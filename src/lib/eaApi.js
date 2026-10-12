@@ -1,6 +1,6 @@
 import recorteSnap from '../data/recorte-ea.json'
 
-const EA_HOST =
+export const EA_HOST =
   typeof window !== 'undefined' && window.location.hostname.endsWith('github.io')
     ? 'https://xv-piripiri.resisted-lycra.workers.dev'
     : ''
@@ -953,7 +953,7 @@ function normalizeMatchSide(clubId, clubs, players, aggregate) {
   }
 }
 
-function normalizeMatches(payload, clubId, type) {
+export function normalizeMatches(payload, clubId, type) {
   const list = Array.isArray(payload) ? payload : []
   const us = String(clubId)
   return list.map((m) => {
