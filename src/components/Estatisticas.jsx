@@ -175,7 +175,6 @@ export default function Estatisticas({ store }) {
   const withStats = store.players.filter((p) => p.stats)
   const divisionCode =
     season?.currentDivision || store.club.currentDivision || overall?.bestDivision
-  const peakCode = overall?.bestDivision || season?.bestDivision
 
   const rankedPlayers = useMemo(
     () => sortSquad(store.players, sortKey, sortDir, view),
@@ -189,11 +188,6 @@ export default function Estatisticas({ store }) {
     const filtered = matchFilter === 'all' ? list : list.filter((m) => m.type === matchFilter)
     return filtered.slice(0, 10)
   }, [ea.matches, matchFilter])
-
-  const latestMatch = useMemo(
-    () => [...(ea.matches || [])].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))[0] || null,
-    [ea.matches],
-  )
 
   const teamTotals = useMemo(() => {
     const rows = store.players.filter((p) => p.stats)
@@ -333,9 +327,8 @@ export default function Estatisticas({ store }) {
       <Matchday
         club={store.club}
         overall={overall}
-        latest={latestMatch}
+        matches={ea.matches}
         divisionCode={divisionCode}
-        peakCode={peakCode}
         loading={loading}
         onSync={syncSaved}
         onOpenMatch={setOpenMatch}
