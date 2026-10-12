@@ -116,16 +116,23 @@ async function getJson(path, params = {}) {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), 15000)
   try {
-    const res = await fetch(url.toString(), { signal: ctrl.signal })
-    if (!res.ok) {
+    // A EA barra o proxy com 403/429 de forma intermitente: tenta de novo com pausa crescente.
+    for (let attempt = 0; ; attempt += 1) {
+      const res = await fetch(url.toString(), { signal: ctrl.signal })
+      if (res.ok) return fixEaTree(await res.json())
+      if (attempt < 2 && RETRY_STATUS.has(res.status)) {
+        await new Promise((r) => setTimeout(r, 700 * (attempt + 1) + Math.random() * 400))
+        continue
+      }
       const text = await res.text()
       throw new Error(`EA API ${res.status}: ${text.slice(0, 180)}`)
     }
-    return fixEaTree(await res.json())
   } finally {
     clearTimeout(timer)
   }
 }
+
+const RETRY_STATUS = new Set([403, 429, 500, 502, 503, 504])
 
 async function settled(promise) {
   try {
