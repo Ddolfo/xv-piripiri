@@ -1,9 +1,7 @@
 import { Component, useEffect, useState } from 'react'
-import Escalacao from './components/Escalacao'
 import Estatisticas from './components/Estatisticas'
 import Header from './components/Header'
 import Rivais from './components/Rivais'
-import DraftApp from './draft/ui/DraftApp.jsx'
 import { useStore } from './hooks/useStore'
 import {
   applyRecorte,
@@ -157,7 +155,7 @@ export default function App() {
 
   return (
     <PanelError>
-      <div className="app-shell">
+      <div className={`app-shell${view === 'draft' ? ' is-draft' : ''}`}>
         <Header
           view={view}
           setView={selectView}
@@ -170,12 +168,19 @@ export default function App() {
           clubName={clubName}
         />
         <main className="main">
-          <div className="page-wrap">
-            {view === 'draft' && <DraftApp />}
-            {clubView && panel === 'stats' && <Estatisticas key={view} store={store} />}
-            {clubView && panel === 'rivais' && <Rivais key={view} store={store} />}
-            {clubView && panel === 'escalacao' && <Escalacao key={view} store={store} />}
-          </div>
+          {view === 'draft' ? (
+            <div className="draft-soon">
+              <img
+                src={`${import.meta.env.BASE_URL}draft-em-construcao.jpg`}
+                alt="O Draft está em construção. Em breve novidades!"
+              />
+            </div>
+          ) : (
+            <div className="page-wrap">
+              {panel === 'stats' && <Estatisticas key={view} store={store} />}
+              {panel === 'rivais' && <Rivais key={view} store={store} />}
+            </div>
+          )}
         </main>
       </div>
     </PanelError>

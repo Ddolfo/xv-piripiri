@@ -141,6 +141,24 @@ h1, h2, h3, .brand { font-family: Nunito, Segoe UI, sans-serif; font-weight: 800
   padding: 28px 0 64px;
   padding-bottom: max(64px, calc(32px + env(safe-area-inset-bottom)));
 }
+.app-shell.is-draft .main {
+  padding: 0;
+  padding-bottom: 0;
+}
+.draft-soon {
+  width: 100%;
+  min-height: calc(100dvh - 120px);
+  display: grid;
+  place-items: center;
+  background: #050506;
+}
+.draft-soon img {
+  width: 100%;
+  max-height: calc(100dvh - 88px);
+  height: auto;
+  object-fit: contain;
+  display: block;
+}
 .topbar {
   display: flex;
   justify-content: space-between;

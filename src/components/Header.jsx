@@ -66,21 +66,14 @@ export default function Header({
             >
               Rivais
             </button>
-            <button
-              type="button"
-              className={panel === 'escalacao' ? 'active' : ''}
-              onClick={() => setPanel('escalacao')}
-            >
-              Escalação
-            </button>
           </nav>
         ) : null}
 
         <div className="top-meta">
           {view === 'draft' ? (
-            <span>Campeonato interno Draft XV</span>
+            <span>Em construção</span>
           ) : booting ? (
-            <span>Carregando {clubName || active.name}…</span>
+            <span>Carregando {clubName || def.name}…</span>
           ) : (
             <>
               <span>{club?.name || clubName}</span>
