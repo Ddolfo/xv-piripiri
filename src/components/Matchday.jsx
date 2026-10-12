@@ -1,6 +1,6 @@
 import { divisionLabel, MATCH_TYPE_LABEL } from '../lib/eaApi'
 
-const RESULT_WORD = { V: 'vitória', E: 'empate', D: 'derrota' }
+const RESULT_WORD = { V: 'Vitória', E: 'Empate', D: 'Derrota' }
 
 function fmt(n) {
   if (n == null || n === '' || Number.isNaN(Number(n))) return '—'
@@ -35,11 +35,20 @@ function agoLong(ago) {
 function streakLine(overall) {
   if (overall?.winStreak) return plural(overall.winStreak, 'vitória seguida', 'vitórias seguidas')
   if (overall?.unbeatenStreak) return plural(overall.unbeatenStreak, 'jogo sem perder', 'jogos sem perder')
-  return 'Sequência zerada'
+  return 'Sem sequência no momento'
 }
 
-// Topo da página: o último placar e a forma recente pintada como as listras do manto.
-// Cada vitória é uma listra amarela — uma boa fase literalmente veste a camisa do XV.
+function Tile({ label, value, note }) {
+  return (
+    <div className="tile">
+      <dt>{label}</dt>
+      <dd>{value}</dd>
+      {note ? <small>{note}</small> : null}
+    </div>
+  )
+}
+
+// Topo da página no estilo vitrine: o último placar como manchete e os números em mosaico.
 export default function Matchday({ club, overall, latest, divisionCode, peakCode, loading, onSync, onOpenMatch }) {
   const form = overall?.form || []
   const oldestFirst = [...form].reverse()
@@ -48,97 +57,78 @@ export default function Matchday({ club, overall, latest, divisionCode, peakCode
         .filter(Boolean)
         .join(' · ')
     : 'Painel do clube'
+  const result = String(latest?.result || '').toLowerCase()
 
   return (
-    <section className="matchday" aria-labelledby="matchday-title">
-      <h2 id="matchday-title" className="sr-only">
-        Estatísticas do {club.name}
-      </h2>
-      <div className="matchday-top">
-        <span className="eyebrow">{kicker}</span>
-        <button className="btn ghost" onClick={onSync} disabled={loading || !club.clubId}>
-          {loading ? 'Atualizando…' : 'Atualizar da EA'}
-        </button>
-      </div>
-
-      <div className="matchday-body">
+    <section className="showcase" aria-labelledby="showcase-title">
+      <div className="showcase-hero">
+        <p className="showcase-eyebrow">{kicker}</p>
         {latest ? (
-          <button
-            type="button"
-            className={`placar ${String(latest.result || '').toLowerCase()}`}
-            onClick={() => onOpenMatch(latest)}
-          >
-            <span className="placar-team us">{club.name}</span>
-            <span className="placar-score" aria-label={`${latest.usGoals} a ${latest.themGoals}`}>
-              <b>{latest.usGoals}</b>
-              <i aria-hidden="true">×</i>
-              <b>{latest.themGoals}</b>
-            </span>
-            <span className="placar-team them">{latest.opponent}</span>
-            <small className="placar-foot">
-              {RESULT_WORD[latest.result] ? `${RESULT_WORD[latest.result]}${latest.winnerByDnf ? ' por W.O.' : ''} · ` : ''}
-              Abrir a súmula
-            </small>
-          </button>
+          <>
+            <h2 id="showcase-title" className="showcase-teams">
+              {club.name} <span>×</span> {latest.opponent}
+            </h2>
+            <p className={`showcase-score ${result}`} aria-label={`${latest.usGoals} a ${latest.themGoals}`}>
+              {latest.usGoals}
+              <span aria-hidden="true">–</span>
+              {latest.themGoals}
+            </p>
+            <p className="showcase-sub">
+              {RESULT_WORD[latest.result] || 'Resultado'}
+              {latest.winnerByDnf ? ' por W.O.' : ''}
+            </p>
+          </>
         ) : (
-          <div className="placar empty">
-            <span className="placar-team us">{club.name}</span>
-            <small className="placar-foot">A EA ainda não mandou jogos. Toque em Atualizar da EA.</small>
-          </div>
+          <>
+            <h2 id="showcase-title" className="showcase-teams">
+              {club.name}
+            </h2>
+            <p className="showcase-sub">A EA ainda não mandou jogos. Toque em Atualizar da EA.</p>
+          </>
         )}
+        <div className="showcase-actions">
+          {latest ? (
+            <button type="button" className="pill" onClick={() => onOpenMatch(latest)}>
+              Ver súmula
+            </button>
+          ) : null}
+          <button type="button" className="link-btn" onClick={onSync} disabled={loading || !club.clubId}>
+            {loading ? 'Atualizando…' : 'Atualizar da EA'}
+          </button>
+        </div>
 
         {form.length ? (
-          <figure className="manto">
+          <figure className="form-line">
             <div
-              className="manto-stripes"
+              className="form-line-dots"
               role="img"
               aria-label={`Forma nos últimos ${form.length} jogos, do mais antigo ao mais recente: ${oldestFirst.join(', ')}`}
             >
               {oldestFirst.map((r, i) => (
-                <i key={i} className={`stripe ${r.toLowerCase()}`} style={{ '--i': i }}>
-                  <span>{r}</span>
-                </i>
+                <i key={i} className={r.toLowerCase()} title={RESULT_WORD[r]} style={{ '--n': i }} />
               ))}
             </div>
             <figcaption>
-              <b>{streakLine(overall)}</b>
-              <span>Últimos {form.length} jogos · o mais recente à direita</span>
+              {streakLine(overall)} · últimos {form.length} jogos
             </figcaption>
           </figure>
         ) : null}
       </div>
 
-      <dl className="ledger">
-        <div>
-          <dt>Divisão</dt>
-          <dd>{divisionLabel(divisionCode)}</dd>
-        </div>
-        <div>
-          <dt>Habilidade</dt>
-          <dd>{overall ? fmt(overall.skillRating) : '—'}</dd>
-        </div>
-        <div>
-          <dt>Carreira V-E-D</dt>
-          <dd>{overall ? `${fmt(overall.wins)}-${fmt(overall.ties)}-${fmt(overall.losses)}` : '—'}</dd>
-          {overall ? <small>{plural(overall.games, 'jogo', 'jogos')}</small> : null}
-        </div>
-        <div>
-          <dt>Saldo de gols</dt>
-          <dd>{overall ? signed(overall.goalDiff) : '—'}</dd>
-          {overall ? (
-            <small>
-              {fmt(overall.goals)} pró · {fmt(overall.goalsAgainst)} contra
-            </small>
-          ) : null}
-        </div>
-        <div>
-          <dt>Aproveitamento</dt>
-          <dd>{overall ? `${overall.winPct}%` : '—'}</dd>
-        </div>
-        <div>
-          <dt>Melhor divisão</dt>
-          <dd>{divisionLabel(peakCode)}</dd>
-        </div>
+      <dl className="bento">
+        <Tile label="Divisão" value={divisionLabel(divisionCode)} note={`Melhor: ${divisionLabel(peakCode)}`} />
+        <Tile label="Habilidade" value={overall ? fmt(overall.skillRating) : '—'} note="Nota da EA para o clube" />
+        <Tile
+          label="Campanha"
+          value={overall ? `${fmt(overall.wins)}-${fmt(overall.ties)}-${fmt(overall.losses)}` : '—'}
+          note={overall ? `${plural(overall.games, 'jogo', 'jogos')} · V-E-D` : ''}
+        />
+        <Tile
+          label="Saldo de gols"
+          value={overall ? signed(overall.goalDiff) : '—'}
+          note={overall ? `${fmt(overall.goals)} pró · ${fmt(overall.goalsAgainst)} contra` : ''}
+        />
+        <Tile label="Aproveitamento" value={overall ? `${overall.winPct}%` : '—'} note="Vitórias na carreira" />
       </dl>
     </section>
   )

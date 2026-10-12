@@ -25,7 +25,7 @@ export default function Header({
         <div className="brand-block">
           <img src={logo} alt={title} />
           <div>
-            <h1>{title.toUpperCase()}</h1>
+            <h1>{title}</h1>
             <p>{tagline}</p>
           </div>
         </div>
