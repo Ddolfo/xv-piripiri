@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { MATCH_TYPE_LABEL, POS_LINE_LABEL, divisionLabel } from '../lib/eaApi'
-import { LOGO_SRC } from '../lib/brand'
+import { clubLogoSrc } from '../lib/brand'
 import PlayerMark from './PlayerMark'
 
 function fmt(n, digits) {
@@ -459,8 +459,8 @@ export default function PartidaPerfil({
                   <section className="ea-sheet">
                     <header className="ea-sheet-head">
                       <HexBadge
-                        crest={LOGO_SRC}
-                        label="XV de PiriPiri"
+                        crest={clubLogoSrc(store.club)}
+                        label={homeName}
                         count={us?.playerCount}
                       />
                       <div className="ea-sheet-score">
@@ -484,7 +484,7 @@ export default function PartidaPerfil({
                     </p>
                     <div className="dash-facts">
                       <DashFact
-                        label="Jogadores do XV"
+                        label={`Jogadores de ${homeName}`}
                         value={fmt(us?.playerCount)}
                         hint="Em campo nesta súmula"
                       />
@@ -494,7 +494,7 @@ export default function PartidaPerfil({
                         hint="Em campo nesta súmula"
                       />
                       <DashFact
-                        label="Nota do XV"
+                        label={`Nota de ${homeName}`}
                         value={us?.avgRating ? fmt(us.avgRating, 2) : '—'}
                       />
                       <DashFact
@@ -543,7 +543,7 @@ export default function PartidaPerfil({
                   <section className="dash-squads">
                     <div>
                       <h4>
-                        XV de PiriPiri <small>{fmt(us?.playerCount)} em campo</small>
+                        {homeName} <small>{fmt(us?.playerCount)} em campo</small>
                       </h4>
                       <div className="dash-squad-list">
                         {(us?.players || []).map((p) => (
@@ -608,7 +608,7 @@ export default function PartidaPerfil({
               {(tab === 'xv' || tab === 'rival') && (
                 <>
                   <p className="card-lead" style={{ marginTop: 0 }}>
-                    Tudo o que a súmula publica para cada Pro. Clique no jogador do XV para abrir a
+                    Tudo o que a súmula publica para cada Pro. Clique no jogador do clube para abrir a
                     ficha.
                   </p>
                   <div className="stats-filters">

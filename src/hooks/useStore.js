@@ -1,17 +1,19 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { FORMATIONS } from '../data/formations'
 import {
   applyRecorte,
+  clubById,
   fixEaText,
   fixEaTree,
   isHollowOverall,
   isHollowSeason,
+  isXvClubId,
   mergeMatchLists,
   recorteHistoryMatches,
   XV_CLUB,
 } from '../lib/eaApi'
 import { mergeHistory } from '../lib/rivals'
-import { loadState, saveState, uid } from '../lib/storage'
+import { emptyClubState, loadAllClubStates, saveClubState, uid } from '../lib/storage'
 
 function keepLastEa(prev, next) {
   if (!next) return applyRecorte(prev || {})
@@ -59,15 +61,48 @@ function healState(s) {
 }
 
 export function useStore() {
-  const [state, setState] = useState(() => healState(loadState()))
+  const [activeClubId, setActiveClubId] = useState(String(XV_CLUB.clubId))
+  const activeRef = useRef(activeClubId)
+  useEffect(() => {
+    activeRef.current = activeClubId
+  }, [activeClubId])
+
+  const [bags, setBags] = useState(() => {
+    const loaded = loadAllClubStates()
+    const next = {}
+    for (const [id, bag] of Object.entries(loaded)) next[id] = healState(bag)
+    return next
+  })
+
+  const state = bags[activeClubId] || emptyClubState(clubById(activeClubId))
   const healed = useMemo(() => healState(state), [state])
 
   useEffect(() => {
-    saveState(healed)
-  }, [healed])
+    saveClubState(clubById(activeClubId), healed)
+  }, [activeClubId, healed])
+
+  const patch = useCallback((fn) => {
+    setBags((prev) => {
+      const id = activeRef.current
+      const cur = prev[id] || emptyClubState(clubById(id))
+      const nxt = fn(cur)
+      if (nxt === cur) return prev
+      return { ...prev, [id]: nxt }
+    })
+  }, [])
+
+  const switchClub = useCallback((clubId) => {
+    const id = String(clubId)
+    activeRef.current = id
+    setBags((prev) => {
+      if (prev[id]) return prev
+      return { ...prev, [id]: healState(emptyClubState(clubById(id))) }
+    })
+    setActiveClubId(id)
+  }, [])
 
   const addPlayer = useCallback((player) => {
-    setState((s) => ({
+    patch((s) => ({
       ...s,
       players: [
         ...s.players,
@@ -79,17 +114,17 @@ export function useStore() {
         },
       ],
     }))
-  }, [])
+  }, [patch])
 
-  const updatePlayer = useCallback((id, patch) => {
-    setState((s) => ({
+  const updatePlayer = useCallback((id, next) => {
+    patch((s) => ({
       ...s,
-      players: s.players.map((p) => (p.id === id ? { ...p, ...patch } : p)),
+      players: s.players.map((p) => (p.id === id ? { ...p, ...next } : p)),
     }))
-  }, [])
+  }, [patch])
 
   const removePlayer = useCallback((id) => {
-    setState((s) => {
+    patch((s) => {
       const lineup = { ...s.lineup }
       Object.keys(lineup).forEach((slot) => {
         if (lineup[slot] === id) delete lineup[slot]
@@ -100,14 +135,14 @@ export function useStore() {
         lineup,
       }
     })
-  }, [])
+  }, [patch])
 
   const setFormation = useCallback((formation) => {
-    setState((s) => ({ ...s, formation, lineup: {} }))
-  }, [])
+    patch((s) => ({ ...s, formation, lineup: {} }))
+  }, [patch])
 
   const assignPlayer = useCallback((slotId, playerId) => {
-    setState((s) => {
+    patch((s) => {
       const lineup = { ...s.lineup }
       Object.keys(lineup).forEach((k) => {
         if (lineup[k] === playerId) delete lineup[k]
@@ -115,26 +150,26 @@ export function useStore() {
       lineup[slotId] = playerId
       return { ...s, lineup }
     })
-  }, [])
+  }, [patch])
 
   const clearSlot = useCallback((slotId) => {
-    setState((s) => {
+    patch((s) => {
       const lineup = { ...s.lineup }
       delete lineup[slotId]
       return { ...s, lineup }
     })
-  }, [])
+  }, [patch])
 
   const resetLineup = useCallback(() => {
-    setState((s) => ({ ...s, lineup: {} }))
-  }, [])
+    patch((s) => ({ ...s, lineup: {} }))
+  }, [patch])
 
   const setClub = useCallback((club) => {
-    setState((s) => ({ ...s, club: { ...s.club, ...club } }))
-  }, [])
+    patch((s) => ({ ...s, club: { ...s.club, ...club } }))
+  }, [patch])
 
   const upsertFromEa = useCallback((members, extra = {}) => {
-    setState((s) => {
+    patch((s) => {
       const nextId = String(extra.club?.clubId || extra.ea?.clubId || s.club.clubId || '')
       const clubChanged = Boolean(s.club.clubId && nextId && nextId !== String(s.club.clubId))
       const list = members || []
@@ -209,18 +244,18 @@ export function useStore() {
           clubChanged ? [] : s.history,
           extra.ea?.matches,
           extra.ea?.rivalMatches,
-          String(nextId) === String(XV_CLUB.clubId) ? recorteHistoryMatches() : [],
+          isXvClubId(nextId) ? recorteHistoryMatches() : [],
         ),
       }
     })
-  }, [])
+  }, [patch])
 
   const mergeMatchHistory = useCallback((matches) => {
-    setState((s) => ({
+    patch((s) => ({
       ...s,
       history: mergeHistory(s.history, matches),
     }))
-  }, [])
+  }, [patch])
 
   const slots = useMemo(
     () => FORMATIONS[state.formation] || FORMATIONS['4-2-3-1'],
@@ -234,8 +269,10 @@ export function useStore() {
 
   return {
     ...healed,
+    activeClubId,
     slots,
     assignedIds,
+    switchClub,
     addPlayer,
     updatePlayer,
     removePlayer,

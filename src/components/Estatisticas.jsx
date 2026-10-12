@@ -422,7 +422,7 @@ export default function Estatisticas({ store }) {
               <Fact
                 label="Divisão agora"
                 value={divisionLabel(season.currentDivision)}
-                hint="Onde o XV está nesta temporada"
+                hint="Onde o clube está nesta temporada"
               />
               <Fact
                 label="Pontos na tabela"
@@ -556,7 +556,7 @@ export default function Estatisticas({ store }) {
 
       <div className="grid-2" style={{ marginTop: 18 }}>
         <section className="card">
-          <h3>Últimos jogos do XV</h3>
+          <h3>Últimos jogos de {store.club.name || 'clube'}</h3>
           <p className="card-lead">
             Só os 10 jogos mais recentes da EA. A divisão do rival é a atual na EA, não a do dia
             do jogo. Clique numa partida para abrir a súmula.
@@ -830,7 +830,7 @@ export default function Estatisticas({ store }) {
         </div>
         {store.players.length === 0 && (
           <div className="notice" style={{ marginTop: 10 }}>
-            Sem jogadores. Espere o XV carregar ou use Atualizar da EA.
+            Sem jogadores. Espere o clube carregar ou use Atualizar da EA.
           </div>
         )}
         <p className="stats-sort-hint">

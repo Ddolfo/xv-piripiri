@@ -95,7 +95,14 @@ h1, h2, h3, .brand { font-family: Nunito, Segoe UI, sans-serif; font-weight: 800
   text-transform: uppercase;
 }
 
-.nav { display: flex; gap: 8px; flex: 0 0 auto; }
+.nav { display: flex; gap: 8px; flex: 0 0 auto; flex-wrap: wrap; }
+.club-switch button {
+  font-family: Oswald, Nunito, sans-serif;
+  letter-spacing: 0.7px;
+}
+.panel-nav button {
+  padding: 8px 14px;
+}
 .nav button {
   text-align: center;
   border: 1px solid transparent;
@@ -1738,6 +1745,7 @@ button.match-row:hover { border-color: var(--gold); }
   }
   .nav { width: 100%; }
   .nav button { flex: 1; min-height: 44px; }
+  .panel-nav button { min-height: 40px; }
   .top-meta { width: 100%; margin-left: 0; justify-content: flex-start; }
   .pitch-wrap,
   .grid-2,

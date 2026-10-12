@@ -1,50 +1,91 @@
-import { LOGO_SRC } from '../lib/brand'
-import { divisionLabel } from '../lib/eaApi'
+import { COACH_CLUBS, XV_CLUB, clubById, divisionLabel } from '../lib/eaApi'
+import { clubLogoSrc } from '../lib/brand'
 
-export default function Header({ tab, setTab, players, club, overall, booting }) {
+export default function Header({
+  view,
+  setView,
+  panel,
+  setPanel,
+  players,
+  club,
+  overall,
+  booting,
+  clubName,
+}) {
+  const clubView = view !== 'draft'
+  const def = clubView ? clubById(view) : XV_CLUB
+  const showing = clubView && String(club?.clubId) === String(view) ? club : def
+  const logo = clubLogoSrc(showing)
+  const title = showing.name || def.name
+  const tagline = def.tagline || 'Painel técnico · FC 27'
+
   return (
     <header className="top-nav">
       <div className="page-wrap top-nav-inner">
         <div className="brand-block">
-          <img src={LOGO_SRC} alt="XV de PiriPiri" />
+          <img src={logo} alt={title} />
           <div>
-            <h1>XV DE PIRIPIRI</h1>
-            <p>Painel técnico · FC 27 · desde 2021</p>
+            <h1>{title.toUpperCase()}</h1>
+            <p>{tagline}</p>
           </div>
         </div>
 
-        <nav className="nav">
+        <nav className="nav club-switch" aria-label="Times">
+          {COACH_CLUBS.map((c) => (
+            <button
+              key={c.clubId}
+              type="button"
+              className={view === c.clubId ? 'active' : ''}
+              onClick={() => setView(c.clubId)}
+            >
+              {c.name}
+            </button>
+          ))}
           <button
             type="button"
-            className={tab === 'stats' ? 'active' : ''}
-            onClick={() => setTab('stats')}
+            className={view === 'draft' ? 'active' : ''}
+            onClick={() => setView('draft')}
           >
-            Estatísticas
-          </button>
-          <button
-            type="button"
-            className={tab === 'rivais' ? 'active' : ''}
-            onClick={() => setTab('rivais')}
-          >
-            Rivais
-          </button>
-          <button
-            type="button"
-            className={tab === 'escalacao' ? 'active' : ''}
-            onClick={() => setTab('escalacao')}
-          >
-            Escalação
+            Draft XV
           </button>
         </nav>
 
+        {clubView ? (
+          <nav className="nav panel-nav" aria-label="Painel do clube">
+            <button
+              type="button"
+              className={panel === 'stats' ? 'active' : ''}
+              onClick={() => setPanel('stats')}
+            >
+              Estatísticas
+            </button>
+            <button
+              type="button"
+              className={panel === 'rivais' ? 'active' : ''}
+              onClick={() => setPanel('rivais')}
+            >
+              Rivais
+            </button>
+            <button
+              type="button"
+              className={panel === 'escalacao' ? 'active' : ''}
+              onClick={() => setPanel('escalacao')}
+            >
+              Escalação
+            </button>
+          </nav>
+        ) : null}
+
         <div className="top-meta">
-          {booting ? (
-            <span>Carregando o XV de PiriPiri…</span>
+          {view === 'draft' ? (
+            <span>Campeonato interno Draft XV</span>
+          ) : booting ? (
+            <span>Carregando {clubName || active.name}…</span>
           ) : (
             <>
-              <span>{club.name}</span>
+              <span>{club?.name || clubName}</span>
               <span>{players.length} jogadores</span>
-              {club.currentDivision ? <span>{divisionLabel(club.currentDivision)}</span> : null}
+              {club?.currentDivision ? <span>{divisionLabel(club.currentDivision)}</span> : null}
               {overall?.skillRating ? (
                 <span>Habilidade {Number(overall.skillRating).toLocaleString('pt-BR')}</span>
               ) : null}

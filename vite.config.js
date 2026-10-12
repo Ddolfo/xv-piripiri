@@ -1,9 +1,13 @@
 import react from '@vitejs/plugin-react'
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
+import { draftVitePlugin } from './src/draft/vite-plugin.js'
+
+const rootDir = fileURLToPath(new URL('.', import.meta.url))
 
 export default defineConfig({
   base: process.env.VITE_BASE || '/',
-  plugins: [react()],
+  plugins: [react(), draftVitePlugin(rootDir)],
   server: {
     host: true,
     port: 5173,

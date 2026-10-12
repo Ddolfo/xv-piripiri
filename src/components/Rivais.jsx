@@ -89,7 +89,7 @@ export default function Rivais({ store }) {
     <>
       <div className="topbar">
         <div>
-          <h2>Rivais do XV</h2>
+          <h2>Rivais de {store.club.name || 'clube'}</h2>
           <p>
             Histórico acumulado de confrontos. A EA só manda os 10 jogos mais recentes de cada tipo;
             o painel guarda cada partida nova, soma o arquivo do site e ainda busca na lista do rival
@@ -106,7 +106,7 @@ export default function Rivais({ store }) {
           <b>{summary.pato?.name || '—'}</b>
           <p>
             {summary.pato
-              ? `O time que mais perde para o XV · ${fmt(summary.pato.wins)} vitória${summary.pato.wins === 1 ? '' : 's'} nossa${summary.pato.wins === 1 ? '' : 's'} em ${fmt(summary.pato.games)} jogo${summary.pato.games === 1 ? '' : 's'}`
+              ? `O time que mais perde para ${store.club.name || 'nós'} · ${fmt(summary.pato.wins)} vitória${summary.pato.wins === 1 ? '' : 's'} nossa${summary.pato.wins === 1 ? '' : 's'} em ${fmt(summary.pato.games)} jogo${summary.pato.games === 1 ? '' : 's'}`
               : 'Ainda não tem vítima frequente.'}
           </p>
         </article>
@@ -115,7 +115,7 @@ export default function Rivais({ store }) {
           <b>{summary.algoz?.name || '—'}</b>
           <p>
             {summary.algoz
-              ? `O time que mais vence o XV · ${fmt(summary.algoz.losses)} derrota${summary.algoz.losses === 1 ? '' : 's'} em ${fmt(summary.algoz.games)} jogo${summary.algoz.games === 1 ? '' : 's'}`
+              ? `O time que mais vence ${store.club.name || 'nós'} · ${fmt(summary.algoz.losses)} derrota${summary.algoz.losses === 1 ? '' : 's'} em ${fmt(summary.algoz.games)} jogo${summary.algoz.games === 1 ? '' : 's'}`
               : 'Ainda não tem algoz no histórico.'}
           </p>
         </article>

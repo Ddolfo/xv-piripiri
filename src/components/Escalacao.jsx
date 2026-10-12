@@ -3,7 +3,7 @@ import { flushSync } from 'react-dom'
 import { toPng } from 'html-to-image'
 import { FORMATION_KEYS } from '../data/formations'
 import { LINE_GROUPS, POSITION_COLORS, POSITION_LABELS } from '../data/positions'
-import { LOGO_SRC } from '../lib/brand'
+import { clubLogoSrc } from '../lib/brand'
 
 const LINE = 'rgba(255,255,255,0.72)'
 const SW = 0.3
@@ -173,7 +173,7 @@ export default function Escalacao({ store }) {
               </article>
             ))}
             {store.players.length === 0 && (
-              <div className="notice">O elenco entra automaticamente ao abrir o site. Espere o XV carregar.</div>
+              <div className="notice">O elenco entra automaticamente ao abrir o site. Espere o clube carregar.</div>
             )}
           </div>
         </section>
@@ -181,7 +181,7 @@ export default function Escalacao({ store }) {
         <section className="card pitch-panel">
           <div className={`pitch-card${exporting ? ' is-exporting' : ''}`} ref={cardRef}>
             <header className="pitch-card-head">
-              <img src={LOGO_SRC} alt="" draggable="false" />
+              <img src={clubLogoSrc(store.club)} alt="" draggable="false" />
               <div>
                 <small>Escalação · {when}</small>
                 <b>{clubName}</b>

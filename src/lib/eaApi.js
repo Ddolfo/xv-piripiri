@@ -8,10 +8,31 @@ const EA_HOST =
 const BASE = `${EA_HOST}/ea/api/fc`
 
 export const XV_CLUB = {
+  id: 'xv',
   name: 'XV de PiriPiri',
   clubId: '51895',
   legacyClubIds: ['14693'],
   platform: 'common-gen5',
+  tagline: 'Painel técnico · FC 27 · desde 2021',
+}
+
+export const BARCARENA_CLUB = {
+  id: 'barcarena',
+  name: 'Barcarena FC',
+  clubId: '1336090',
+  legacyClubIds: [],
+  platform: 'common-gen5',
+  tagline: 'Painel técnico · FC 27',
+}
+
+export const COACH_CLUBS = [XV_CLUB, BARCARENA_CLUB]
+
+export function isXvClubId(id) {
+  return String(id) === String(XV_CLUB.clubId)
+}
+
+export function clubById(id) {
+  return COACH_CLUBS.find((c) => String(c.clubId) === String(id)) || XV_CLUB
 }
 
 const MOJIBAKE_PAIRS = [
@@ -351,7 +372,7 @@ export function recorteHistoryMatches(snap = recorteSnap) {
 export function applyRecorte(bundle = {}, snap = recorteSnap) {
   const liveId = String(bundle.clubId || '')
   const snapId = String(snap?.clubId || '')
-  const sameClub = !liveId || !snapId || liveId === snapId
+  const sameClub = Boolean(liveId && snapId && liveId === snapId)
   const liveHasData = !isHollowOverall(bundle.overall) || (bundle.matches || []).length > 0
   if (!snap || !sameClub || liveHasData) {
     const matches = mergeMatchLists(bundle.matches || []).slice(0, 10)
@@ -1242,14 +1263,20 @@ export function pickClubId(entry) {
   )
 }
 
-export function pickXvClub(list) {
+export function pickNamedClub(list, club) {
   const arr = Array.isArray(list) ? list : []
-  const want = XV_CLUB.name.toLowerCase()
-  const exact = arr.find((c) => pickClubName(c).trim().toLowerCase() === want)
+  const want = String(club?.name || '').trim().toLowerCase()
+  const id = String(club?.clubId || '')
+  const legacy = new Set((club?.legacyClubIds || []).map(String))
+  const exact = want ? arr.find((c) => pickClubName(c).trim().toLowerCase() === want) : null
   if (exact) return exact
-  const byId = arr.find((c) => String(pickClubId(c)) === XV_CLUB.clubId)
+  const byId = id ? arr.find((c) => String(pickClubId(c)) === id) : null
   if (byId) return byId
-  return arr.find((c) => !XV_CLUB.legacyClubIds.includes(String(pickClubId(c)))) || arr[0] || null
+  return arr.find((c) => !legacy.has(String(pickClubId(c)))) || arr[0] || null
+}
+
+export function pickXvClub(list) {
+  return pickNamedClub(list, XV_CLUB)
 }
 
 export function pickClubName(entry) {
