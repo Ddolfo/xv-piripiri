@@ -5,7 +5,6 @@ import {
   groupFinishLabel,
   reputationLabel,
   loadClubBundle,
-  MATCH_TYPE_LABEL,
   NATIONS,
   POS_LINE_LABEL,
   PRO_POS_LABEL,
@@ -94,21 +93,6 @@ function passSplit(stats) {
   return { total, ok, bad, pct: Number.isFinite(pct) ? pct : null }
 }
 
-function timeAgoLabel(ago) {
-  if (!ago) return ''
-  const n = ago.number
-  const unit = {
-    seconds: 's',
-    minutes: 'min',
-    hours: 'h',
-    days: 'd',
-    weeks: 'sem',
-    months: 'mês',
-    years: 'a',
-  }[ago.unit] || ago.unit
-  return `${n}${unit}`
-}
-
 function Fact({ label, value, hint }) {
   return (
     <div>
@@ -162,7 +146,6 @@ export default function Estatisticas({ store }) {
   const [sortKey, setSortKey] = useState('goals')
   const [sortDir, setSortDir] = useState('desc')
   const [view, setView] = useState('club')
-  const [matchFilter, setMatchFilter] = useState('all')
   const [openPlayer, setOpenPlayer] = useState(null)
   const [openMatch, setOpenMatch] = useState(null)
 
@@ -171,7 +154,6 @@ export default function Estatisticas({ store }) {
   const season = ea.season
   const board = ea.board
   const info = ea.info
-  const recent = ea.recent
   const withStats = store.players.filter((p) => p.stats)
   const divisionCode =
     season?.currentDivision || store.club.currentDivision || overall?.bestDivision
@@ -182,12 +164,6 @@ export default function Estatisticas({ store }) {
   )
 
   const kitColors = info?.kit?.home || []
-
-  const shownMatches = useMemo(() => {
-    const list = [...(ea.matches || [])].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
-    const filtered = matchFilter === 'all' ? list : list.filter((m) => m.type === matchFilter)
-    return filtered.slice(0, 10)
-  }, [ea.matches, matchFilter])
 
   const teamTotals = useMemo(() => {
     const rows = store.players.filter((p) => p.stats)
@@ -487,85 +463,7 @@ export default function Estatisticas({ store }) {
           ) : null}
       </section>
 
-      <div className="grid-2" style={{ marginTop: 18 }}>
-        <section className="card">
-          <h3>Últimos jogos de {store.club.name || 'clube'}</h3>
-          <p className="card-lead">
-            Só os 10 jogos mais recentes da EA. A divisão do rival é a atual na EA, não a do dia
-            do jogo. Clique numa partida para abrir a súmula.
-          </p>
-          {recent ? (
-            <div className="recent-strip">
-              <span>
-                Nos últimos {recent.games} jogos: {record(recent.wins, recent.ties, recent.losses)}
-              </span>
-              <span>
-                Gols {fmt(recent.goals)}–{fmt(recent.goalsAgainst)}
-              </span>
-              <span>
-                Passes {fmt(recent.passes)}/{fmt(recent.passAttempts)} ({fmt(recent.passPct)}%)
-              </span>
-              <span>Finalizações {fmt(recent.shots)}</span>
-            </div>
-          ) : null}
-          <div className="stats-filters" style={{ marginTop: 8 }}>
-            {[
-              ['all', 'Todos'],
-              ['leagueMatch', 'Liga'],
-              ['playoffMatch', 'Playoff'],
-              ['friendlyMatch', 'Amistoso'],
-            ].map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                className={`filter-chip${matchFilter === key ? ' active' : ''}`}
-                onClick={() => setMatchFilter(key)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          {shownMatches.length ? (
-            <div className="match-list" style={{ marginTop: 10 }}>
-              {shownMatches.map((m) => (
-                <button
-                  key={m.id}
-                  type="button"
-                  className={`match-row ${m.result.toLowerCase()}`}
-                  onClick={() => setOpenMatch(m)}
-                >
-                  <span className={`match-res ${m.result.toLowerCase()}`}>{m.result || '—'}</span>
-                  <div>
-                    <b>
-                      {m.usGoals} × {m.themGoals} {m.opponent}
-                      {m.opponentDivision
-                        ? ` · ${divisionLabel(m.opponentDivision)}`
-                        : ''}
-                    </b>
-                    <small>
-                      {MATCH_TYPE_LABEL[m.type] || m.type}
-                      {m.opponentDivision
-                        ? ` · ${divisionLabel(m.opponentDivision)} agora`
-                        : ''}
-                      {m.timeAgo ? ` · ${timeAgoLabel(m.timeAgo)}` : ''}
-                      {m.winnerByDnf ? ' · ganhou por W.O.' : ''}
-                      {m.shots ? ` · ${m.shots} finalizações` : ''}
-                      {m.passAttempts
-                        ? ` · ${m.passes}/${m.passAttempts} passes`
-                        : ''}
-                      {m.avgRating ? ` · nota ${fmt(m.avgRating, 2)}` : ''}
-                      {m.motm ? ' · teve MOTM' : ''}
-                    </small>
-                  </div>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <div className="notice">Nenhum jogo deste tipo na API. Sincronize o clube.</div>
-          )}
-        </section>
-
-        <section className="card">
+      <section className="card" style={{ marginTop: 18 }}>
           <h3>Playoffs por temporada</h3>
         {ea.playoffs?.length ? (
           <table className="stats-table" style={{ minWidth: 0 }}>
@@ -596,8 +494,7 @@ export default function Estatisticas({ store }) {
             fase.
           </div>
         )}
-        </section>
-      </div>
+      </section>
 
       <section className="card" style={{ marginTop: 18 }}>
         <h3>Números do elenco</h3>
