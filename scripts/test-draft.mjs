@@ -549,6 +549,52 @@ test('regras de cartões: vermelho suspende e 3 amarelos no campeonato suspendem
   })
 })
 
+test('prêmio por partida: vitória paga 2.500, empate 1.000 a cada um, uma vez só', async () => {
+  const { engine, admin, users } = await setupWorld()
+  const { cup, fixture, home, away } = await cupWithLineups(engine, admin, users)
+  const before = {}
+  for (const u of [home, away]) before[u.id] = (await engine.snapshot(u)).club.balance
+  const ch = await engine.challenge(home, fixture.id)
+  const { match } = await engine.respondChallenge(away, ch.id, true)
+  const after = {}
+  for (const u of [home, away]) after[u.id] = (await engine.snapshot(u)).club.balance
+  const gainHome = after[home.id] - before[home.id]
+  const gainAway = after[away.id] - before[away.id]
+  if (match.homeGoals === match.awayGoals) {
+    assert.equal(gainHome, 1000)
+    assert.equal(gainAway, 1000)
+  } else {
+    const homeWon = match.homeGoals > match.awayGoals
+    assert.equal(gainHome, homeWon ? 2500 : 0)
+    assert.equal(gainAway, homeWon ? 0 : 2500)
+  }
+  // Validar de novo (ex.: correção do admin) não paga outra vez.
+  await engine.tx(async (state) => {
+    engine._payMatchRewards(state, state.matches[match.id])
+    return null
+  })
+  const again = (await engine.snapshot(home)).club.balance
+  assert.equal(again, after[home.id])
+  const ledger = (await engine.snapshot(homeWon(match) ? home : away)).club.ledger || []
+  if (match.homeGoals !== match.awayGoals) assert.ok(ledger.some((l) => l.reason === 'premio_vitoria' && l.amount === 2500))
+  void cup
+})
+
+test('prêmio segue o valor ajustado pelo admin', async () => {
+  const { engine, admin, users } = await setupWorld()
+  await engine.updateSettings(admin, { rewardWin: 4000, rewardDraw: 1500 })
+  const { fixture, home, away } = await cupWithLineups(engine, admin, users)
+  const b0 = (await engine.snapshot(home)).club.balance + (await engine.snapshot(away)).club.balance
+  const ch = await engine.challenge(home, fixture.id)
+  const { match } = await engine.respondChallenge(away, ch.id, true)
+  const b1 = (await engine.snapshot(home)).club.balance + (await engine.snapshot(away)).club.balance
+  assert.equal(b1 - b0, match.homeGoals === match.awayGoals ? 3000 : 4000)
+})
+
+function homeWon(m) {
+  return m.homeGoals > m.awayGoals
+}
+
 let failed = 0
 for (const item of tests) {
   try {

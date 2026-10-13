@@ -99,6 +99,8 @@ const LEDGER_LABEL = {
   leilao_vencedor: 'Leilão vencido',
   negociacao: 'Negociação paga',
   negociacao_recebida: 'Negociação recebida',
+  premio_vitoria: 'Prêmio por vitória',
+  premio_empate: 'Prêmio por empate',
 }
 
 const STATUS_LABEL = {

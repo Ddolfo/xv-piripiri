@@ -23,6 +23,8 @@ import {
   STARTING_COINS,
   STARTING_ROSTER,
   YELLOW_CARD_LIMIT,
+  REWARD_DRAW,
+  REWARD_WIN,
   STRATEGY_PRESETS,
 } from './lib/constants.js'
 import { hashPassword, randomToken, sha256B64, verifyPassword } from './lib/crypto.js'
@@ -767,6 +769,8 @@ export class DraftEngine {
         'benchCount',
         'maxSubs',
         'yellowCardLimit',
+        'rewardWin',
+        'rewardDraw',
         'suspensionScope',
       ]
       for (const key of allowed) {
@@ -1475,11 +1479,35 @@ export class DraftEngine {
     const cup = state.championships[match.championshipId]
     if (cup?.format === 'mata-mata') this._advanceKnockout(state, cup, match)
     this._applyCardRules(state, match)
+    const prizes = this._payMatchRewards(state, match)
     const home = state.clubs[match.homeClubId]
     const away = state.clubs[match.awayClubId]
     const line = `${home?.name || 'Mandante'} ${match.homeGoals} x ${match.awayGoals} ${away?.name || 'Visitante'}`
-    notifyClub(state, match.homeClubId, 'resultado', 'Partida jogada', `${line}. O resultado já está na tabela.`, { matchId: match.id })
-    notifyClub(state, match.awayClubId, 'resultado', 'Partida jogada', `${line}. O resultado já está na tabela.`, { matchId: match.id })
+    const prizeText = (clubId) => (prizes[clubId] ? ` Prêmio: ${prizes[clubId].toLocaleString('pt-BR')} XV-Coins.` : '')
+    notifyClub(state, match.homeClubId, 'resultado', 'Partida jogada', `${line}. O resultado já está na tabela.${prizeText(match.homeClubId)}`, { matchId: match.id })
+    notifyClub(state, match.awayClubId, 'resultado', 'Partida jogada', `${line}. O resultado já está na tabela.${prizeText(match.awayClubId)}`, { matchId: match.id })
+  }
+
+  // Prêmio em XV-Coins por vitória e empate, pago uma única vez por partida.
+  _payMatchRewards(state, match) {
+    if (match.rewardsPaid) return match.rewardsPaid
+    const win = Math.max(0, Number(state.settings.rewardWin ?? REWARD_WIN) || 0)
+    const draw = Math.max(0, Number(state.settings.rewardDraw ?? REWARD_DRAW) || 0)
+    const paid = {}
+    const pay = (clubId, amount, reason) => {
+      if (!amount || !state.clubs[clubId]) return
+      credit(state, clubId, amount, reason, { matchId: match.id })
+      paid[clubId] = amount
+    }
+    if (match.homeGoals === match.awayGoals) {
+      pay(match.homeClubId, draw, 'premio_empate')
+      pay(match.awayClubId, draw, 'premio_empate')
+    } else {
+      const winner = match.homeGoals > match.awayGoals ? match.homeClubId : match.awayClubId
+      pay(winner, win, 'premio_vitoria')
+    }
+    match.rewardsPaid = paid
+    return paid
   }
 
   /**

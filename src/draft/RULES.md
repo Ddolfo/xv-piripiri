@@ -12,6 +12,7 @@ Regras que o prompt mestre deixou abertas, com o padrão inicial seguro:
 - Titulares 11, banco até 7, até 5 substituições.
 - Partidas: só o **mandante** convida; quando o visitante **aceita**, a partida é simulada na hora e o resultado entra direto na tabela (sem confirmação de início nem de resultado). Os dois clubes precisam ter escalação salva com 11 titulares, sem suspensos.
 - Cartões: vermelho direto ou dois amarelos no jogo suspendem na **próxima partida oficial**; a cada **3 amarelos** no mesmo campeonato (ajustável em `yellowCardLimit`) o jogador também cumpre suspensão. Os dois amarelos de uma expulsão não contam para o acúmulo. O cartão vai para quem cometeu a falta e o expulso sai do jogo.
+- Prêmio por partida: vitória paga **2.500 XV-Coins** (um jogador de 77–79) e empate **1.000** para cada clube (um de 70–76); derrota não paga. Ajustável pelo admin (`rewardWin`, `rewardDraw`). Numa temporada de 10 jogos o campeão junta perto de 20 mil (um 85).
 - Tabela: pontos corridos com faltas, amarelos e vermelhos por clube, e rankings de artilharia, assistências, faltas, amarelos e vermelhos por jogador.
 - Partidas simultâneas do mesmo clube: bloqueadas; o admin resolve ambiguidade.
 - Senha do admin `ddolfo.draft`: variável `DRAFT_ADMIN_PASSWORD`. No `npm run dev`, se faltar, uma senha é gravada em `data/.draft-secret` (fora do git).

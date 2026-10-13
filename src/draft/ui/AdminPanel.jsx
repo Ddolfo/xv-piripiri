@@ -550,7 +550,7 @@ function Rosters({ snap, run, setModal }) {
 
 // ---------- Mercado ----------
 
-function Market({ snap, run, busy }) {
+function Market({ snap, run, busy, setModal }) {
   const drawDone = !!snap.drawDone
   const market = snap.marketStatus || 'fechado'
   return (
@@ -578,6 +578,35 @@ function Market({ snap, run, busy }) {
             Fechar
           </button>
         </div>
+      </div>
+      <div className="card admin-card-head">
+        <div>
+          <h3>Premiação por partida</h3>
+          <p className="muted">
+            Vitória <b className="ok-text">{coins(snap.settings?.rewardWin ?? 2500)}</b> · Empate{' '}
+            <b>{coins(snap.settings?.rewardDraw ?? 1000)}</b> · Derrota não paga. Cai na carteira do clube assim que a partida é jogada.
+          </p>
+        </div>
+        <button
+          className="btn ghost"
+          onClick={() =>
+            setModal(
+              <FormModal
+                title="Premiação por partida"
+                intro="Referência: 2.500 compra um jogador de 77 a 79; 1.000 compra um de 70 a 76; 20.000 compra um 85."
+                fields={[
+                  { name: 'rewardWin', label: 'Vitória (XV-Coins)', type: 'number', min: 0, defaultValue: String(snap.settings?.rewardWin ?? 2500) },
+                  { name: 'rewardDraw', label: 'Empate (XV-Coins)', type: 'number', min: 0, defaultValue: String(snap.settings?.rewardDraw ?? 1000) },
+                ]}
+                submitLabel="Salvar premiação"
+                onClose={() => setModal(null)}
+                onSubmit={(v) => run(() => draftApi.settings(v), 'Premiação atualizada.').then(() => setModal(null))}
+              />,
+            )
+          }
+        >
+          Alterar valores
+        </button>
       </div>
       <details className="card admin-prices">
         <summary>Tabela oficial de preços</summary>
@@ -676,7 +705,7 @@ export default function AdminPanel({ snap, err, ok, busy, run, onLogout }) {
       {tab === 'campeonatos' && <Championships snap={snap} run={run} setModal={setModal} names={names} />}
       {tab === 'participantes' && <Participants snap={snap} run={run} setModal={setModal} busy={busy} />}
       {tab === 'elencos' && <Rosters snap={snap} run={run} setModal={setModal} />}
-      {tab === 'mercado' && <Market snap={snap} run={run} busy={busy} />}
+      {tab === 'mercado' && <Market snap={snap} run={run} busy={busy} setModal={setModal} />}
       {tab === 'auditoria' && <Audit snap={snap} />}
       {modal}
     </section>

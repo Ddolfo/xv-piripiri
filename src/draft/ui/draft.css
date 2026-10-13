@@ -1152,3 +1152,6 @@ td .admin-pill { justify-self: auto; }
   font-size: 13px;
 }
 .admin-blocker b { color: var(--ink); font-weight: 600; }
+/* Campos dentro das janelas: um tom acima do fundo da janela para aparecerem. */
+.modal .field input,
+.modal .field select { background: var(--surface-3); }
