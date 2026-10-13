@@ -4,6 +4,7 @@ import { DRAW_BANDS, STARTING_COINS, STARTING_ROSTER } from '../src/draft/lib/co
 import { PRICE_BELOW_70, PRICE_TABLE, buyPrice, sellPrice } from '../src/draft/lib/prices.js'
 import { createMemoryStore } from '../src/draft/store.js'
 import { positionTiers } from '../src/draft/lib/draw.js'
+import { cleanCrest } from '../src/draft/lib/crest.js'
 import { FORMATIONS, FORMATION_KEYS } from '../src/data/formations.js'
 
 const crest = {
@@ -471,6 +472,25 @@ test('estresse: 8 clubes em todas as formações, 25 sorteios seguidos', async (
       }
     }
   }
+})
+
+test('escudo do ateliê é validado, limpo e salvo', async () => {
+  const { engine, admin } = await setupWorld()
+  await engine.createParticipant(admin, { username: 'clube.teta', password: 'senha-segura-99', displayName: 'Teta' })
+  const { actor } = await login(engine, 'clube.teta', 'senha-segura-99')
+  const base = { version: 2, shape: 'moderno', pattern: 'listras', symbol: 'bola', primary: '#111111', secondary: '#ffd60a', accent: '#ffffff', monogram: 'TFC', ribbon: '', stars: 1 }
+  await assert.rejects(
+    () => engine.setupClub(actor, { name: 'Teta FC', formation: '4-3-3', crest: { ...base, symbol: 'nenhum', monogram: '' } }),
+    /símbolo ou de uma sigla/,
+  )
+  await assert.rejects(
+    () => engine.setupClub(actor, { name: 'Teta FC', formation: '4-3-3', crest: { ...base, primary: '#111111', secondary: '#111111', accent: '#111111' } }),
+    /cores/,
+  )
+  await engine.setupClub(actor, { name: 'Teta FC', formation: '4-3-3', crest: { ...base, extra: '<script>', shape: 'moderno' } })
+  const { club } = await engine.snapshot(actor)
+  assert.deepEqual(club.crest, cleanCrest(base))
+  assert.equal(club.primary, '#111111')
 })
 
 let failed = 0

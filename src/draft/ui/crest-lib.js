@@ -1,10 +1,3 @@
-export const SHIELD_SHAPES = [
-  { id: 'heater', label: 'Escudo clássico' },
-  { id: 'classic', label: 'Escudo inglês' },
-  { id: 'circle', label: 'Círculo' },
-  { id: 'diamond', label: 'Losango' },
-]
-
 export function pathFor(shape) {
   if (shape === 'circle') return 'M100 18 A82 82 0 1 1 99.9 18 Z'
   if (shape === 'diamond') return 'M100 12 L188 100 L100 188 L12 100 Z'
@@ -27,21 +20,5 @@ export function layerGeom(layer) {
     y: Number.isFinite(layer?.y) ? layer.y : defaultLayerY(layer?.type),
     scale: Number.isFinite(layer?.scale) ? layer.scale : 1,
     rotate: Number.isFinite(layer?.rotate) ? layer.rotate : 0,
-  }
-}
-
-function pieceId() {
-  return `ly_${Math.random().toString(36).slice(2, 9)}`
-}
-
-export function emptyCrest(primary, secondary) {
-  return {
-    shape: 'heater',
-    primary,
-    secondary,
-    layers: [
-      { id: pieceId(), type: 'stripe', fill: secondary, x: 100, y: 100, scale: 1, rotate: 0 },
-      { id: pieceId(), type: 'letter', fill: '#f4f4f6', text: 'XV', x: 100, y: 122, scale: 1, rotate: 0 },
-    ],
   }
 }

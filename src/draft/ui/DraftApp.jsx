@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
-import { uniqueColors } from '../lib/util.js'
+import { validateCrest } from '../lib/crest.js'
 import { coins, draftApi, formatLabel, ledgerLabel, overallTone, setDraftToken, statusLabel } from './api.js'
-import { emptyCrest } from './crest-lib.js'
-import CrestEditor from './CrestEditor.jsx'
+import CrestEditor, { startingCrest } from './CrestEditor.jsx'
 import CrestMark from './CrestMark.jsx'
 import FormModal from './FormModal.jsx'
 import FormationPicker from './FormationPicker.jsx'
@@ -118,7 +117,7 @@ export default function DraftApp() {
   const [ok, setOk] = useState('')
   const [busy, setBusy] = useState(false)
   const [login, setLogin] = useState({ username: '', password: '' })
-  const [onboard, setOnboard] = useState({ step: 1, name: '', formation: '', primary: '#ffd200', secondary: '#145c32', crest: null })
+  const [onboard, setOnboard] = useState({ step: 1, name: '', formation: '', crest: null })
   const [modal, setModal] = useState(null)
 
   async function refresh() {
@@ -279,16 +278,16 @@ export default function DraftApp() {
 }
 
 function Onboarding({ onboard, setOnboard, err, busy, run, onLogout }) {
-  const crest = onboard.crest || emptyCrest(onboard.primary, onboard.secondary)
-  const colors = uniqueColors({ ...crest, primary: onboard.primary, secondary: onboard.secondary })
-  const canFinish = onboard.name.trim().length >= 3 && !!onboard.formation && colors.length >= 2 && colors.length <= 5
-  const LAST = 5
+  const crest = onboard.crest || startingCrest(onboard.name)
+  const crestError = validateCrest(crest)
+  const canFinish = onboard.name.trim().length >= 3 && !!onboard.formation && !crestError
+  const LAST = 4
   const canNext =
-    (onboard.step === 1 && onboard.name.trim().length >= 3) || (onboard.step === 2 && !!onboard.formation) || onboard.step > 2
+    (onboard.step === 1 && onboard.name.trim().length >= 3) || (onboard.step === 2 && !!onboard.formation) || (onboard.step === 3 && !crestError)
   return (
     <section className="draft-xv card onboarding">
       <div className="steps">
-        {['Nome', 'Formação', 'Cores', 'Emblema', 'Concluir'].map((label, i) => (
+        {['Nome', 'Formação', 'Escudo', 'Concluir'].map((label, i) => (
           <span key={label} className={onboard.step === i + 1 ? 'on' : ''}>
             {i + 1}. {label}
           </span>
@@ -313,28 +312,16 @@ function Onboarding({ onboard, setOnboard, err, busy, run, onLogout }) {
         </div>
       )}
       {onboard.step === 3 && (
-        <div className="color-row">
-          <label className="field">
-            Cor principal
-            <input type="color" value={onboard.primary} onChange={(e) => setOnboard({ ...onboard, primary: e.target.value })} />
-          </label>
-          <label className="field">
-            Cor secundária
-            <input type="color" value={onboard.secondary} onChange={(e) => setOnboard({ ...onboard, secondary: e.target.value })} />
-          </label>
+        <div>
+          <h3>Escudo do clube</h3>
+          <p className="muted">Escolha forma, padrão, cores, símbolo e texto. Tudo pode ser trocado até concluir.</p>
+          <CrestEditor clubName={onboard.name.trim()} value={crest} onChange={(c) => setOnboard({ ...onboard, crest: c })} />
+          {crestError ? <p className="err-text">{crestError}</p> : null}
         </div>
-      )}
-      {onboard.step === 4 && (
-        <CrestEditor
-          primary={onboard.primary}
-          secondary={onboard.secondary}
-          value={crest}
-          onChange={(c) => setOnboard({ ...onboard, crest: c })}
-        />
       )}
       {onboard.step === LAST && (
         <div className="club-cell">
-          <CrestMark crest={{ ...crest, primary: onboard.primary, secondary: onboard.secondary }} size={96} />
+          <CrestMark crest={crest} size={120} />
           <div>
             <h3>{onboard.name}</h3>
             <p className="muted">
@@ -364,9 +351,9 @@ function Onboarding({ onboard, setOnboard, err, busy, run, onLogout }) {
                   draftApi.setupClub({
                     name: onboard.name,
                     formation: onboard.formation,
-                    primary: onboard.primary,
-                    secondary: onboard.secondary,
-                    crest: { ...crest, primary: onboard.primary, secondary: onboard.secondary },
+                    primary: crest.primary,
+                    secondary: crest.secondary,
+                    crest,
                   }),
                 'Clube criado.',
               )

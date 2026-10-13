@@ -1,4 +1,5 @@
 import { useId } from 'react'
+import CrestArt from './CrestArt.jsx'
 import { layerGeom, pathFor } from './crest-lib.js'
 
 function LayerShape({ layer, secondary = '#111' }) {
@@ -43,7 +44,13 @@ function LayerShape({ layer, secondary = '#111' }) {
   return null
 }
 
-export default function CrestMark({ crest, size = 72, title = 'Emblema', selectedId, onSelect, onPointerDownLayer }) {
+export default function CrestMark(props) {
+  // Escudo novo (montado no ateliê); os antigos, feitos com peças soltas, seguem no desenho de antes.
+  if (props.crest?.version === 2) return <CrestArt crest={props.crest} size={props.size || 72} title={props.title || 'Escudo'} />
+  return <LegacyCrest {...props} />
+}
+
+function LegacyCrest({ crest, size = 72, title = 'Emblema', selectedId, onSelect, onPointerDownLayer }) {
   const shape = crest?.shape || 'heater'
   const layers = (crest?.layers || []).filter((layer) => layer.type && layer.type !== 'shape')
   const primary = crest?.primary || '#ffd200'

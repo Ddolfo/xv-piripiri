@@ -1,307 +1,215 @@
-import { useRef, useState } from 'react'
-import { CREST_COLOR_MAX, CREST_COLOR_MIN } from '../lib/constants.js'
-import { uniqueColors } from '../lib/util.js'
-import { SHIELD_SHAPES, defaultLayerY, emptyCrest, layerGeom } from './crest-lib.js'
-import CrestMark from './CrestMark.jsx'
+import { useState } from 'react'
+import {
+  CREST_PALETTES,
+  CREST_PATTERNS,
+  CREST_SHAPES,
+  CREST_SYMBOLS,
+  MONOGRAM_MAX,
+  STARS_MAX,
+  cleanCrest,
+  monogramFrom,
+  randomCrest,
+} from '../lib/crest.js'
+import CrestArt from './CrestArt.jsx'
 
-const PIECES = [
-  { type: 'stripe', label: 'Faixa' },
-  { type: 'bar', label: 'Pilar' },
-  { type: 'diagonal', label: 'Banda' },
-  { type: 'chevron', label: 'Chevron' },
-  { type: 'cross', label: 'Cruz' },
-  { type: 'star', label: 'Estrela' },
-  { type: 'ball', label: 'Bola' },
-  { type: 'ring', label: 'Anel' },
-  { type: 'crown', label: 'Coroa' },
-  { type: 'letter', label: 'Iniciais' },
+const TABS = [
+  ['forma', 'Forma'],
+  ['padrao', 'Padrão'],
+  ['cores', 'Cores'],
+  ['simbolo', 'Símbolo'],
+  ['texto', 'Texto'],
 ]
 
-function pieceId() {
-  return `ly_${Math.random().toString(36).slice(2, 9)}`
+export function startingCrest(clubName) {
+  return cleanCrest({
+    shape: 'classico',
+    pattern: 'listras',
+    symbol: 'bola',
+    ...CREST_PALETTES[0],
+    monogram: monogramFrom(clubName),
+    ribbon: '',
+    stars: 0,
+  })
 }
 
-function ensureLayers(crest, primary, secondary) {
-  const layers = (crest?.layers || [])
-    .filter((l) => l.type && l.type !== 'shape')
-    .map((l, i) => ({
-      ...l,
-      id: l.id || `ly_${i}`,
-      x: Number.isFinite(l.x) ? l.x : 100,
-      y: Number.isFinite(l.y) ? l.y : defaultLayerY(l.type),
-      scale: Number.isFinite(l.scale) ? l.scale : 1,
-      rotate: Number.isFinite(l.rotate) ? l.rotate : 0,
-    }))
-  return {
-    shape: crest?.shape || 'heater',
-    primary,
-    secondary,
-    layers,
-  }
-}
-
-function clientToViewBox(svg, clientX, clientY) {
-  const rect = svg.getBoundingClientRect()
-  if (!rect.width || !rect.height) return { x: 100, y: 100 }
-  return {
-    x: ((clientX - rect.left) / rect.width) * 200,
-    y: ((clientY - rect.top) / rect.height) * 200,
-  }
-}
-
-export default function CrestEditor({ primary, secondary, value, onChange }) {
-  const crest = ensureLayers(value || emptyCrest(primary, secondary), primary, secondary)
-  const [past, setPast] = useState([])
-  const [future, setFuture] = useState([])
-  const [selectedId, setSelectedId] = useState(crest.layers[crest.layers.length - 1]?.id || null)
-  const [liveLayers, setLiveLayers] = useState(null)
-  const drag = useRef(null)
-  const svgWrap = useRef(null)
-  const layers = liveLayers || crest.layers
-  const liveCrest = { ...crest, layers, primary, secondary }
-  const colors = uniqueColors(liveCrest)
-  const selected = layers.find((l) => l.id === selectedId) || null
-  const palette = [primary, secondary, '#f4f4f6', '#111111', '#8b1e1e', '#1c4b9b'].filter(
-    (c, i, arr) => arr.findIndex((x) => x.toLowerCase() === c.toLowerCase()) === i,
+function Tile({ active, label, onClick, children }) {
+  return (
+    <button type="button" className={`studio-tile${active ? ' on' : ''}`} aria-pressed={active} onClick={onClick}>
+      {children}
+      <span>{label}</span>
+    </button>
   )
+}
 
-  function commit(next, { keepFuture = false } = {}) {
-    setPast((p) => [...p.slice(-30), crest])
-    if (!keepFuture) setFuture([])
-    setLiveLayers(null)
-    onChange({ ...next, primary, secondary })
+function ColorField({ label, value, onChange }) {
+  return (
+    <label className="studio-color">
+      <input type="color" value={value} onChange={(e) => onChange(e.target.value)} />
+      <span>
+        <b>{label}</b>
+        <small>{value.toUpperCase()}</small>
+      </span>
+    </label>
+  )
+}
+
+// Ateliê do escudo: escolhas guiadas que sempre resultam num escudo bem acabado.
+export default function CrestEditor({ value, onChange, clubName = '' }) {
+  const crest = cleanCrest(value || startingCrest(clubName))
+  const [tab, setTab] = useState('forma')
+  const [history, setHistory] = useState([])
+
+  function update(patch) {
+    setHistory((h) => [...h.slice(-30), crest])
+    onChange(cleanCrest({ ...crest, ...patch }))
   }
 
   function undo() {
-    if (!past.length) return
-    const prev = past[past.length - 1]
-    setPast(past.slice(0, -1))
-    setFuture((f) => [crest, ...f])
-    setLiveLayers(null)
-    onChange({ ...prev, primary, secondary })
+    if (!history.length) return
+    onChange(history[history.length - 1])
+    setHistory(history.slice(0, -1))
   }
 
-  function redo() {
-    if (!future.length) return
-    const nxt = future[0]
-    setFuture(future.slice(1))
-    setPast((p) => [...p, crest])
-    setLiveLayers(null)
-    onChange({ ...nxt, primary, secondary })
-  }
-
-  function addPiece(type) {
-    const same = layers.filter((l) => l.type === type).length
-    const piece = {
-      id: pieceId(),
-      type,
-      fill: type === 'letter' || type === 'star' || type === 'crown' || type === 'ball' ? '#f4f4f6' : secondary,
-      text: type === 'letter' ? 'XV' : undefined,
-      x: 100 + (same % 3) * 10 - 10,
-      y: defaultLayerY(type) + Math.floor(same / 3) * 10,
-      scale: 1,
-      rotate: 0,
-    }
-    const next = { ...crest, layers: [...layers, piece] }
-    setSelectedId(piece.id)
-    commit(next)
-  }
-
-  function patchSelected(patch) {
-    if (!selected) return
-    commit({
-      ...crest,
-      layers: layers.map((l) => (l.id === selected.id ? { ...l, ...patch } : l)),
-    })
-  }
-
-  function removeSelected() {
-    if (!selected) return
-    const nextLayers = layers.filter((l) => l.id !== selected.id)
-    setSelectedId(nextLayers[nextLayers.length - 1]?.id || null)
-    commit({ ...crest, layers: nextLayers })
-  }
-
-  function moveLayer(dir) {
-    if (!selected) return
-    const i = layers.findIndex((l) => l.id === selected.id)
-    const j = i + dir
-    if (j < 0 || j >= layers.length) return
-    const next = [...layers]
-    const [item] = next.splice(i, 1)
-    next.splice(j, 0, item)
-    commit({ ...crest, layers: next })
-  }
-
-  function onPointerDownLayer(e, layer) {
-    e.preventDefault()
-    e.stopPropagation()
-    setSelectedId(layer.id)
-    const svg = svgWrap.current?.querySelector('svg')
-    if (!svg) return
-    const pt = clientToViewBox(svg, e.clientX, e.clientY)
-    const geom = layerGeom(layer)
-    drag.current = {
-      id: layer.id,
-      dx: geom.x - pt.x,
-      dy: geom.y - pt.y,
-      moved: false,
-      origin: layers,
-    }
-    e.currentTarget.setPointerCapture?.(e.pointerId)
-  }
-
-  function onPointerMove(e) {
-    if (!drag.current) return
-    const svg = svgWrap.current?.querySelector('svg')
-    if (!svg) return
-    const pt = clientToViewBox(svg, e.clientX, e.clientY)
-    const x = Math.max(18, Math.min(182, pt.x + drag.current.dx))
-    const y = Math.max(18, Math.min(182, pt.y + drag.current.dy))
-    drag.current.moved = true
-    setLiveLayers(
-      (drag.current.origin || layers).map((l) => (l.id === drag.current.id ? { ...l, x, y } : l)),
-    )
-  }
-
-  function onPointerUp() {
-    if (!drag.current) return
-    const nextLayers = liveLayers || layers
-    const moved = drag.current.moved
-    drag.current = null
-    if (moved) commit({ ...crest, layers: nextLayers })
-    else setLiveLayers(null)
-  }
-
-  const valid = colors.length >= CREST_COLOR_MIN && colors.length <= CREST_COLOR_MAX
+  const preview = (patch) => cleanCrest({ ...crest, ...patch })
+  const samePalette = (p) => p.primary === crest.primary && p.secondary === crest.secondary && p.accent === crest.accent
 
   return (
-    <div className="crest-shop">
-      <aside className="crest-kit">
-        <p className="crest-kit-label">Formato do metal</p>
-        <div className="crest-shape-row">
-          {SHIELD_SHAPES.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              className={crest.shape === s.id ? 'crest-shape on' : 'crest-shape'}
-              onClick={() => commit({ ...crest, shape: s.id })}
-              title={s.label}
-            >
-              <CrestMark crest={{ ...liveCrest, shape: s.id, layers: [] }} size={42} title={s.label} />
-              <span>{s.label}</span>
-            </button>
-          ))}
+    <div className="studio">
+      <div className="studio-stage">
+        <div className="studio-pedestal">
+          <CrestArt crest={crest} size={260} title={`Escudo do ${clubName || 'clube'}`} />
         </div>
-        <p className="crest-kit-label">Peças do esmalte</p>
-        <div className="crest-piece-grid">
-          {PIECES.map((p) => (
-            <button key={p.type} type="button" className="crest-piece" onClick={() => addPiece(p.type)}>
-              {p.label}
-            </button>
-          ))}
+        <div className="studio-sizes" aria-label="Como o escudo aparece pequeno">
+          <CrestArt crest={crest} size={56} />
+          <CrestArt crest={crest} size={32} />
+          <CrestArt crest={crest} size={20} />
+          <small>Na tabela e nas listas</small>
         </div>
-        <p className="muted">Toque numa peça para cravar no escudo. Depois arraste, pinte e gire.</p>
-      </aside>
-
-      <div className="crest-bench">
-        <div
-          className="crest-anvil"
-          ref={svgWrap}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
-        >
-          <CrestMark
-            crest={liveCrest}
-            size={240}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-            onPointerDownLayer={onPointerDownLayer}
-          />
-        </div>
-        <p className={valid ? 'ok-text' : 'err-text'}>
-          {colors.length} cor{colors.length === 1 ? '' : 'es'} no emblema · use de {CREST_COLOR_MIN} a {CREST_COLOR_MAX}
-        </p>
-        <div className="actions">
-          <button type="button" className="btn ghost" onClick={undo} disabled={!past.length}>
-            Desfazer
+        <div className="studio-stage-actions">
+          <button type="button" className="btn ghost" onClick={() => update(randomCrest(clubName))}>
+            Sortear
           </button>
-          <button type="button" className="btn ghost" onClick={redo} disabled={!future.length}>
-            Refazer
+          <button type="button" className="btn ghost" onClick={undo} disabled={!history.length}>
+            Desfazer
           </button>
         </div>
       </div>
 
-      <aside className="crest-inspector">
-        {selected ? (
+      <div className="studio-panel">
+        <div className="draft-subnav studio-tabs" role="tablist">
+          {TABS.map(([id, label]) => (
+            <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? 'active' : ''} onClick={() => setTab(id)}>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'forma' && (
+          <div className="studio-grid">
+            {CREST_SHAPES.map((s) => (
+              <Tile key={s.id} label={s.label} active={crest.shape === s.id} onClick={() => update({ shape: s.id })}>
+                <CrestArt crest={preview({ shape: s.id })} size={72} />
+              </Tile>
+            ))}
+          </div>
+        )}
+
+        {tab === 'padrao' && (
+          <div className="studio-grid">
+            {CREST_PATTERNS.map((p) => (
+              <Tile key={p.id} label={p.label} active={crest.pattern === p.id} onClick={() => update({ pattern: p.id })}>
+                <CrestArt crest={preview({ pattern: p.id })} size={72} />
+              </Tile>
+            ))}
+          </div>
+        )}
+
+        {tab === 'cores' && (
           <>
-            <p className="crest-kit-label">Peça selecionada</p>
-            <strong>{PIECES.find((p) => p.type === selected.type)?.label || selected.type}</strong>
-            <label className="field">
-              Cor da peça
-              <input type="color" value={selected.fill || '#ffffff'} onChange={(e) => patchSelected({ fill: e.target.value })} />
-            </label>
-            <div className="crest-swatches">
-              {palette.map((c) => (
+            <p className="studio-hint">Combinações prontas</p>
+            <div className="studio-palettes">
+              {CREST_PALETTES.map((p) => (
                 <button
-                  key={c}
+                  key={p.id}
                   type="button"
-                  className="crest-swatch"
-                  style={{ background: c }}
-                  onClick={() => patchSelected({ fill: c })}
-                  aria-label={`Pintar com ${c}`}
-                />
+                  className={`studio-palette${samePalette(p) ? ' on' : ''}`}
+                  aria-pressed={samePalette(p)}
+                  onClick={() => update({ primary: p.primary, secondary: p.secondary, accent: p.accent })}
+                >
+                  <span className="studio-swatches" aria-hidden="true">
+                    <i style={{ background: p.primary }} />
+                    <i style={{ background: p.secondary }} />
+                    <i style={{ background: p.accent }} />
+                  </span>
+                  {p.label}
+                </button>
               ))}
             </div>
-            {selected.type === 'letter' ? (
-              <label className="field">
-                Iniciais
-                <input
-                  maxLength={3}
-                  value={selected.text || ''}
-                  onChange={(e) => patchSelected({ text: e.target.value.toUpperCase() })}
-                />
-              </label>
-            ) : null}
+            <p className="studio-hint">Ou escolha cada cor</p>
+            <div className="studio-colors">
+              <ColorField label="Principal" value={crest.primary} onChange={(primary) => update({ primary })} />
+              <ColorField label="Detalhe" value={crest.secondary} onChange={(secondary) => update({ secondary })} />
+              <ColorField label="Destaque" value={crest.accent} onChange={(accent) => update({ accent })} />
+            </div>
+            <p className="muted studio-note">Principal pinta o campo, detalhe pinta o padrão e destaque vai na borda, no símbolo e no texto.</p>
+          </>
+        )}
+
+        {tab === 'simbolo' && (
+          <div className="studio-grid">
+            {CREST_SYMBOLS.map((s) => (
+              <Tile key={s.id} label={s.label} active={crest.symbol === s.id} onClick={() => update({ symbol: s.id })}>
+                <CrestArt crest={preview({ symbol: s.id, ribbon: '' })} size={72} />
+              </Tile>
+            ))}
+          </div>
+        )}
+
+        {tab === 'texto' && (
+          <div className="studio-text">
             <label className="field">
-              Tamanho {Math.round((selected.scale || 1) * 100)}%
+              Sigla
               <input
-                type="range"
-                min="0.4"
-                max="2.2"
-                step="0.05"
-                value={selected.scale || 1}
-                onChange={(e) => patchSelected({ scale: Number(e.target.value) })}
+                value={crest.monogram}
+                maxLength={MONOGRAM_MAX}
+                placeholder={monogramFrom(clubName)}
+                onChange={(e) => update({ monogram: e.target.value })}
               />
+              <small className="muted">Até {MONOGRAM_MAX} letras. Deixe vazio para usar só o símbolo.</small>
             </label>
-            <label className="field">
-              Giro {Math.round(selected.rotate || 0)}°
-              <input
-                type="range"
-                min="-180"
-                max="180"
-                step="1"
-                value={selected.rotate || 0}
-                onChange={(e) => patchSelected({ rotate: Number(e.target.value) })}
-              />
-            </label>
-            <div className="actions">
-              <button type="button" className="btn ghost" onClick={() => moveLayer(1)}>
-                Trazer à frente
-              </button>
-              <button type="button" className="btn ghost" onClick={() => moveLayer(-1)}>
-                Enviar atrás
-              </button>
-              <button type="button" className="btn danger" onClick={removeSelected}>
-                Tirar peça
+
+            <div className="studio-row">
+              <span>
+                <b>Faixa com o nome</b>
+                <small className="muted">{clubName ? clubName.toUpperCase() : 'Nome do clube'}</small>
+              </span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={!!crest.ribbon}
+                className={`studio-switch${crest.ribbon ? ' on' : ''}`}
+                onClick={() => update({ ribbon: crest.ribbon ? '' : clubName })}
+              >
+                <i />
               </button>
             </div>
-          </>
-        ) : (
-          <p className="muted">Clique numa peça no escudo para pintar, girar ou reposicionar. O emblema monta na hora.</p>
+
+            <div className="studio-row">
+              <span>
+                <b>Estrelas de título</b>
+                <small className="muted">Ficam acima do escudo</small>
+              </span>
+              <div className="segmented">
+                {Array.from({ length: STARS_MAX + 1 }, (_, n) => (
+                  <button key={n} type="button" className={crest.stars === n ? 'active' : ''} aria-pressed={crest.stars === n} onClick={() => update({ stars: n })}>
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
         )}
-      </aside>
+      </div>
     </div>
   )
 }

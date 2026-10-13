@@ -299,78 +299,6 @@
 .color-row { display: flex; gap: 12px; }
 .color-row input[type='color'] { width: 64px; height: 40px; border: 0; background: transparent; }
 
-/* ---------- Editor de escudo ---------- */
-
-.crest-editor {
-  display: grid;
-  grid-template-columns: 220px 1fr;
-  gap: 16px;
-  align-items: start;
-}
-.crest-shop {
-  display: grid;
-  grid-template-columns: minmax(170px, 0.85fr) minmax(240px, 1.15fr) minmax(180px, 0.9fr);
-  gap: 14px;
-  align-items: start;
-  padding: 16px;
-  border-radius: var(--radius-lg);
-  background: var(--surface-2);
-}
-.crest-kit-label { margin: 0 0 8px; color: var(--muted); font-size: 12px; font-weight: 500; }
-.crest-shape-row,
-.crest-piece-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
-.crest-shape,
-.crest-piece {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 8px 6px;
-  border: 1px solid transparent;
-  border-radius: 12px;
-  background: var(--surface-3);
-  color: var(--ink);
-  font-size: 11px;
-  font-weight: 500;
-  cursor: pointer;
-}
-.crest-shape.on,
-.crest-piece:hover,
-.crest-shape:hover { border-color: var(--gold); color: var(--gold); }
-.crest-bench { text-align: center; }
-.crest-anvil {
-  display: grid;
-  place-items: center;
-  width: min(100%, 280px);
-  aspect-ratio: 1;
-  margin: 0 auto 10px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 50% 36%, #2c2c2e, #0b0b0c 72%);
-  touch-action: none;
-}
-.crest-inspector {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 12px;
-  border-radius: 14px;
-  background: var(--surface-3);
-}
-.crest-swatches { display: flex; flex-wrap: wrap; gap: 6px; }
-.crest-swatch {
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  border-radius: 999px;
-  cursor: pointer;
-}
-.crest-preview { text-align: center; }
-.crest-mark { filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.45)); }
-.crest-mark-live { user-select: none; }
-.deco-grid { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
-.chip.on { background: var(--gold); color: #000; }
-
 /* ---------- Admin ---------- */
 
 .market-desk {
@@ -542,8 +470,6 @@
 
 @media (max-width: 860px) {
   .draft-hero,
-  .crest-editor,
-  .crest-shop,
   .market-desk,
   .lineup-board { grid-template-columns: 1fr; }
   .draft-hero { padding-top: 32px; align-items: start; }
@@ -648,4 +574,180 @@
 @media (max-width: 720px) {
   .onboarding { margin-top: 20px; padding: 20px; }
   .formation-picker { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* ---------- Ateliê do escudo ---------- */
+
+.studio {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.4fr);
+  gap: 20px;
+  margin-top: 18px;
+  align-items: start;
+}
+.studio-stage {
+  position: sticky;
+  top: 72px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 28px 20px 20px;
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(70% 55% at 50% 38%, rgba(255, 255, 255, 0.07), transparent 70%),
+    var(--surface-2);
+}
+.studio-pedestal { filter: drop-shadow(0 18px 30px rgba(0, 0, 0, 0.55)); }
+.studio-pedestal .crest-mark { width: min(260px, 70vw); height: auto; filter: none; }
+.studio-sizes {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: var(--surface-3);
+}
+.studio-sizes .crest-mark { filter: none; }
+.studio-sizes small { color: var(--muted); font-size: 12px; }
+.studio-stage-actions { display: flex; gap: 8px; }
+
+.studio-panel { min-width: 0; }
+.studio-tabs { margin-bottom: 16px; }
+.studio-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  gap: 10px;
+}
+.studio-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 16px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, transform 0.15s;
+}
+.studio-tile:hover { background: var(--surface-3); }
+.studio-tile:active { transform: scale(0.97); }
+.studio-tile.on { border-color: var(--gold); background: rgba(255, 214, 10, 0.08); }
+.studio-tile .crest-mark { filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4)); }
+
+.studio-hint { margin: 4px 0 10px; color: var(--muted); font-size: 13px; }
+.studio-hint + .studio-palettes + .studio-hint { margin-top: 20px; }
+.studio-palettes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+.studio-palette {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.studio-palette:hover { background: var(--surface-3); }
+.studio-palette.on { border-color: var(--gold); }
+.studio-swatches { display: flex; flex: 0 0 auto; }
+.studio-swatches i {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--surface-2), inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+.studio-swatches i + i { margin-left: -6px; }
+.studio-colors { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.studio-color {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  cursor: pointer;
+}
+.studio-color input[type='color'] {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+}
+.studio-color input[type='color']::-webkit-color-swatch-wrapper { padding: 0; }
+.studio-color input[type='color']::-webkit-color-swatch { border: 0; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2); }
+.studio-color span { display: flex; flex-direction: column; min-width: 0; }
+.studio-color b { font-size: 13px; font-weight: 500; }
+.studio-color small { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.studio-note { margin-top: 12px; font-size: 12px; }
+
+.studio-text { display: flex; flex-direction: column; gap: 12px; }
+.studio-text .field input { text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+.studio-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--surface-2);
+}
+.studio-row span { display: flex; flex-direction: column; min-width: 0; }
+.studio-row b { font-size: 14px; font-weight: 500; }
+.studio-row small { font-size: 12px; }
+.studio-switch {
+  position: relative;
+  flex: 0 0 auto;
+  width: 51px;
+  height: 31px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-3);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.studio-switch i {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  transition: transform 0.2s;
+}
+.studio-switch.on { background: var(--ok); }
+.studio-switch.on i { transform: translateX(20px); }
+
+@media (max-width: 860px) {
+  .studio { grid-template-columns: 1fr; }
+  .studio-stage { position: static; padding: 20px 16px 16px; }
+  .studio-pedestal .crest-mark { width: 200px; }
+}
+@media (max-width: 720px) {
+  .studio-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .studio-tile .crest-mark { width: 60px; height: 60px; }
+  .studio-colors { grid-template-columns: 1fr; }
+  .studio-palettes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .studio-tile, .studio-switch, .studio-switch i { transition: none; }
 }

@@ -27,6 +27,7 @@ import {
 import { hashPassword, randomToken, sha256B64, verifyPassword } from './lib/crypto.js'
 import { auctionStartPrice, buyPrice, priceTableRows, sellPrice } from './lib/prices.js'
 import { FORMATIONS } from '../data/formations.js'
+import { cleanCrest, validateCrest } from './lib/crest.js'
 import { drawFormationRoster } from './lib/draw.js'
 import { PLAYER_BANK_VERSION, buildPlayerBank } from './lib/seed-players.js'
 import { simulateMatch } from './lib/sim.js'
@@ -627,10 +628,15 @@ export class DraftEngine {
       if (existing) throw new DraftError('Já existe um clube com esse nome.')
       const formation = payload.formation
       if (!FORMATION_IDS.includes(formation)) throw new DraftError('Escolha a formação preferida do clube.')
-      const primary = payload.primary || '#ffd200'
-      const secondary = payload.secondary || '#111111'
-      const crest = payload.crest
-      if (!crest || !Array.isArray(crest.layers) || !crest.layers.length) {
+      const studio = payload.crest?.version === 2
+      if (studio) {
+        const problem = validateCrest(payload.crest)
+        if (problem) throw new DraftError(problem)
+      }
+      const crest = studio ? cleanCrest(payload.crest) : payload.crest
+      const primary = studio ? crest.primary : payload.primary || '#ffd200'
+      const secondary = studio ? crest.secondary : payload.secondary || '#111111'
+      if (!studio && (!crest || !Array.isArray(crest.layers) || !crest.layers.length)) {
         throw new DraftError('Crie um emblema antes de concluir.')
       }
       const colors = uniqueColors({ ...crest, primary, secondary })

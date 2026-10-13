@@ -77,6 +77,7 @@ export function uniqueColors(crest) {
   }
   if (crest?.primary) set.add(String(crest.primary).trim().toLowerCase())
   if (crest?.secondary) set.add(String(crest.secondary).trim().toLowerCase())
+  if (crest?.accent) set.add(String(crest.accent).trim().toLowerCase())
   return [...set]
 }
 
