@@ -218,22 +218,34 @@ export function simulateMatch({
   maybeCards(home, homeLineup, homeFirst, homeFouls)
   maybeCards(away, awayLineup, awayFirst, awayFouls)
 
-  ;(homePlan?.subs || []).slice(0, maxSubs).forEach((sub, i) => {
-    push(55 + i * 7, 'substituicao', {
-      clubId: home.id,
-      outId: sub.outId,
-      inId: sub.inId,
-      text: `Substituição em ${home.name}`,
+  const subMinute = {}
+  const pushSubs = (club, plan, lineup, offset) => {
+    ;(plan?.subs || []).slice(0, maxSubs).forEach((sub, i) => {
+      const out = lineup.find((p) => p.id === sub.outId)
+      if (!out || !sub.inPlayer || sentOff.has(out.id)) return
+      const minute = offset + i * 7
+      subMinute[sub.outId] = { off: minute }
+      subMinute[sub.inId] = { on: minute }
+      push(minute, 'substituicao', {
+        clubId: club.id,
+        outId: sub.outId,
+        inId: sub.inId,
+        outName: out.name,
+        inName: sub.inPlayer.name,
+        text: `Entra ${sub.inPlayer.name}, sai ${out.name}`,
+      })
     })
-  })
-  ;(awayPlan?.subs || []).slice(0, maxSubs).forEach((sub, i) => {
-    push(56 + i * 7, 'substituicao', {
-      clubId: away.id,
-      outId: sub.outId,
-      inId: sub.inId,
-      text: `Substituição em ${away.name}`,
-    })
-  })
+  }
+  pushSubs(home, homePlan, homeLineup, 58)
+  pushSubs(away, awayPlan, awayLineup, 61)
+
+  // Ninguém marca nem dá assistência depois de expulso: o gol vai para antes da expulsão.
+  const redAt = Object.fromEntries(reds.map((r) => [r.playerId, r.minute]))
+  for (const e of events) {
+    if (e.type !== 'gol') continue
+    const limit = Math.min(redAt[e.playerId] ?? 99, redAt[e.assistId] ?? 99)
+    if (e.minute >= limit) e.minute = Math.max(1, Math.floor(rand() * Math.max(1, limit - 1)) + 1)
+  }
 
   push(45, 'intervalo', { text: 'Intervalo' })
   push(45, 'reinicio', { text: 'Início do segundo tempo' })
@@ -241,45 +253,111 @@ export function simulateMatch({
 
   events.sort((a, b) => a.minute - b.minute || String(a.type).localeCompare(b.type))
 
-  const homeShots = homeGoals + 4 + Math.floor(rand() * 7)
-  const awayShots = awayGoals + 4 + Math.floor(rand() * 7)
-  const homeOnTarget = homeGoals + 1 + Math.floor(rand() * Math.max(1, homeShots - homeGoals))
-  const awayOnTarget = awayGoals + 1 + Math.floor(rand() * Math.max(1, awayShots - awayGoals))
-  const homePasses = 280 + Math.floor(rand() * 140)
-  const awayPasses = 280 + Math.floor(rand() * 140)
-  const possHome = Math.round((homePasses / (homePasses + awayPasses)) * 100)
+  const midOf = (players) => elevenStrength(players.filter((p) => ['CM', 'CDM', 'CAM', 'LM', 'RM'].includes(p.position))) || elevenStrength(players)
+  const stratTilt = { ofensiva: 3, equilibrada: 0, recuada: -4 }
+  const possHome = Math.round(
+    Math.max(30, Math.min(70, 50 + (midOf(homeLineup) - midOf(awayLineup)) * 1.1 + (stratTilt[homeFirst] || 0) - (stratTilt[awayFirst] || 0) + (rand() - 0.5) * 10)),
+  )
+  const side = (goals, strategy, lineup, poss, oppGoals) => {
+    const shots = goals + 5 + Math.floor(rand() * 8) + (strategy === 'ofensiva' ? 2 : strategy === 'recuada' ? -2 : 0)
+    const onTarget = Math.min(shots, goals + Math.floor(rand() * Math.max(1, (shots - goals) * 0.55)) + (goals ? 0 : 1))
+    const xg = Math.round((shots * 0.085 + onTarget * 0.07 + goals * 0.12 + rand() * 0.25) * 100) / 100
+    const passes = Math.round((780 + Math.floor(rand() * 200)) * (poss / 100))
+    const accuracy = Math.round(Math.max(68, Math.min(92, 74 + (midOf(lineup) - 72) * 0.55 + (rand() - 0.5) * 6)))
+    return {
+      shots: Math.max(shots, goals),
+      shotsOnTarget: Math.max(onTarget, goals),
+      xg,
+      corners: Math.floor(1 + shots * 0.32 + rand() * 3),
+      offsides: Math.floor(rand() * 4) + (strategy === 'ofensiva' ? 1 : 0),
+      passes,
+      passesCompleted: Math.round(passes * (accuracy / 100)),
+      passAccuracy: accuracy,
+      tackles: 11 + Math.floor(rand() * 9) + (strategy === 'recuada' ? 3 : 0),
+      oppGoals,
+    }
+  }
+  const hs = side(homeGoals, homeFirst, homeLineup, possHome, awayGoals)
+  const as = side(awayGoals, awayFirst, awayLineup, 100 - possHome, homeGoals)
+  hs.saves = Math.max(0, as.shotsOnTarget - awayGoals)
+  as.saves = Math.max(0, hs.shotsOnTarget - homeGoals)
 
-  const perf = [...homeAfter.live, ...awayAfter.live].map((p) => {
+  // Nota de 0 a 10 por jogador que entrou em campo.
+  const result = (clubId) => (homeGoals === awayGoals ? 0 : (clubId === home.id) === homeGoals > awayGoals ? 1 : -1)
+  const playerLines = []
+  const addLine = (p, club, starter, saves, conceded) => {
     const goals = events.filter((e) => e.type === 'gol' && e.playerId === p.id).length
-    const yellow = events.some((e) => e.type === 'amarelo' && e.playerId === p.id)
-    return { playerId: p.id, playerName: p.name, clubId: p.clubId, score: p.overall + goals * 8 - (yellow ? 2 : 0) + rand() * 4 }
-  })
-  perf.sort((a, b) => b.score - a.score)
-  const motm = perf[0] || null
+    const assists = events.filter((e) => e.type === 'gol' && e.assistId === p.id).length
+    const yellow = events.filter((e) => e.type === 'amarelo' && e.playerId === p.id).length
+    const red = events.some((e) => e.type === 'vermelho' && e.playerId === p.id)
+    const on = starter ? 0 : subMinute[p.id]?.on ?? 90
+    const off = red ? redAt[p.id] : subMinute[p.id]?.off ?? 90
+    const minutes = Math.max(0, off - on)
+    const defender = ['GK', 'CB', 'LB', 'RB', 'LWB', 'RWB'].includes(p.position)
+    let rating =
+      6.3 +
+      (Number(p.overall || 75) - 75) * 0.025 +
+      goals * 1.0 +
+      assists * 0.6 -
+      yellow * 0.35 -
+      (red ? 2 : 0) +
+      result(club.id) * 0.3 +
+      (defender && conceded === 0 ? 0.5 : defender ? -0.15 * conceded : 0) +
+      (p.position === 'GK' ? saves * 0.15 : 0) +
+      (rand() - 0.5) * (starter ? 1 : 0.6)
+    if (!starter) rating = 6 + (rating - 6.3) * 0.7
+    playerLines.push({
+      playerId: p.id,
+      name: p.name,
+      position: p.position,
+      clubId: club.id,
+      starter,
+      minutes,
+      goals,
+      assists,
+      yellows: yellow,
+      red,
+      rating: Math.round(Math.max(3.5, Math.min(10, rating)) * 10) / 10,
+    })
+  }
+  homeLineup.forEach((p) => addLine(p, home, true, hs.saves, awayGoals))
+  awayLineup.forEach((p) => addLine(p, away, true, as.saves, homeGoals))
+  for (const e of events.filter((x) => x.type === 'substituicao')) {
+    const club = e.clubId === home.id ? home : away
+    const plan = club === home ? homePlan : awayPlan
+    const incoming = (plan?.subs || []).find((x) => x.inId === e.inId)?.inPlayer
+    if (incoming) addLine(incoming, club, false, club === home ? hs.saves : as.saves, club === home ? awayGoals : homeGoals)
+  }
+  const motmLine = [...playerLines].sort((x, y) => y.rating - x.rating)[0] || null
+  const motm = motmLine ? { playerId: motmLine.playerId, playerName: motmLine.name, clubId: motmLine.clubId, rating: motmLine.rating } : null
+  const halfTime = {
+    home: events.filter((e) => e.type === 'gol' && e.clubId === home.id && e.minute <= 45).length,
+    away: events.filter((e) => e.type === 'gol' && e.clubId === away.id && e.minute <= 45).length,
+  }
 
   let penalties = null
   if (homeGoals === awayGoals && homePlan?.needWinner) {
     penalties = simulatePenalties(rand, home, away, homeAfter.live, awayAfter.live)
   }
 
+  const pack = (st) => {
+    const { oppGoals: _ignored, ...rest } = st
+    return rest
+  }
   const stats = {
     home: {
+      ...pack(hs),
       goals: homeGoals,
-      shots: homeShots,
-      shotsOnTarget: Math.min(homeShots, homeOnTarget),
       fouls: homeFouls,
-      passes: homePasses,
       yellows: yellows.filter((y) => y.clubId === home.id).length,
       reds: reds.filter((r) => r.clubId === home.id).length,
       subs: homeAfter.used,
       possession: possHome,
     },
     away: {
+      ...pack(as),
       goals: awayGoals,
-      shots: awayShots,
-      shotsOnTarget: Math.min(awayShots, awayOnTarget),
       fouls: awayFouls,
-      passes: awayPasses,
       yellows: yellows.filter((y) => y.clubId === away.id).length,
       reds: reds.filter((r) => r.clubId === away.id).length,
       subs: awayAfter.used,
@@ -298,6 +376,8 @@ export function simulateMatch({
     yellows,
     reds,
     fouls,
+    players: playerLines,
+    halfTime,
     motm,
     penalties,
     strategies: { home: { first: homeFirst, second: homeSecond }, away: { first: awayFirst, second: awaySecond } },

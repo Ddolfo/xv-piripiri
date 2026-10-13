@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { YELLOW_CARD_LIMIT } from '../lib/constants.js'
 import { draftApi, formatLabel, statusLabel } from './api.js'
 import CrestMark from './CrestMark.jsx'
+import MatchSheet from './MatchSheet.jsx'
 
 function useNames(snap) {
   const clubs = snap.clubs || []
@@ -10,38 +10,15 @@ function useNames(snap) {
     club: (id) => clubs.find((c) => c.id === id) || (snap.club?.id === id ? snap.club : null),
     clubName: (id) => clubs.find((c) => c.id === id)?.name || (snap.club?.id === id ? snap.club.name : 'Clube'),
     playerName: (id) => players.find((p) => p.id === id)?.name || null,
+    playerPosition: (id) => players.find((p) => p.id === id)?.position || null,
   }
 }
 
-export function CardRules({ settings }) {
-  const limit = Number(settings?.yellowCardLimit) || YELLOW_CARD_LIMIT
-  return (
-    <details className="card-rules">
-      <summary>Regras de cartões</summary>
-      <ul>
-        <li>
-          <span className="card-chip red" aria-hidden="true" /> Vermelho direto: suspensão na próxima partida oficial.
-        </li>
-        <li>
-          <span className="card-chip yellow" aria-hidden="true" />
-          <span className="card-chip yellow" aria-hidden="true" /> Dois amarelos no mesmo jogo: expulsão e suspensão na próxima partida.
-          Esses dois amarelos não contam para o acúmulo.
-        </li>
-        <li>
-          <span className="card-chip yellow" aria-hidden="true" /> A cada {limit} amarelos no mesmo campeonato: suspensão na próxima
-          partida oficial.
-        </li>
-        <li>Jogador suspenso não pode estar entre os titulares. Troque na Formação e Escalação antes do convite.</li>
-      </ul>
-    </details>
-  )
-}
-
-function MatchReport({ match, names }) {
+function MatchReport({ match, names, onOpen }) {
   const events = (match.result?.events || []).filter((e) => ['gol', 'amarelo', 'vermelho'].includes(e.type))
   const st = match.result?.stats
   return (
-    <article className="match-report">
+    <button type="button" className="match-report" onClick={() => onOpen?.(match)} aria-label="Abrir a súmula da partida">
       <div className="match-report-score">
         <span className="club-cell">
           <CrestMark crest={names.club(match.homeClubId)?.crest} size={32} />
@@ -80,26 +57,28 @@ function MatchReport({ match, names }) {
       )}
       {st ? (
         <div className="match-report-stats">
-          <span>
-            Faltas <b>{st.home.fouls}</b> · <b>{st.away.fouls}</b>
-          </span>
-          <span>
-            Amarelos <b>{st.home.yellows}</b> · <b>{st.away.yellows}</b>
-          </span>
-          <span>
-            Vermelhos <b>{st.home.reds}</b> · <b>{st.away.reds}</b>
-          </span>
+          {st.home.possession != null ? (
+            <span>
+              Posse <b>{st.home.possession}%</b> · <b>{st.away.possession}%</b>
+            </span>
+          ) : null}
           <span>
             Finalizações <b>{st.home.shots}</b> · <b>{st.away.shots}</b>
           </span>
+          <span>
+            Faltas <b>{st.home.fouls}</b> · <b>{st.away.fouls}</b>
+          </span>
         </div>
       ) : null}
-    </article>
+      <span className="match-report-open">Ver súmula ›</span>
+    </button>
   )
 }
 
 export function CupsView({ snap, run }) {
   const names = useNames(snap)
+  const [sheet, setSheet] = useState(null)
+  const cupOf = (m) => (snap.championships || []).find((c) => c.id === m.championshipId)
   const mine = snap.club?.id
   const challenges = snap.challenges || []
   const openFor = (fixtureId) => challenges.find((c) => c.fixtureId === fixtureId && ['pendente', 'aceito'].includes(c.status))
@@ -192,9 +171,9 @@ export function CupsView({ snap, run }) {
                           <td>{f.bye ? 'Folga' : names.clubName(f.awayClubId)}</td>
                           <td>
                             {match ? (
-                              <b>
-                                {match.homeGoals} × {match.awayGoals}
-                              </b>
+                              <button type="button" className="score-link" onClick={() => setSheet(match)}>
+                                {match.homeGoals} × {match.awayGoals} <small>súmula ›</small>
+                              </button>
                             ) : open?.status === 'pendente' ? (
                               open.fromClubId === mine ? (
                                 'Aguardando o adversário aceitar'
@@ -230,7 +209,7 @@ export function CupsView({ snap, run }) {
       {legacyToConfirm.map((m) => (
         <div key={m.id} className="card">
           <h3>Resultado pendente de confirmação</h3>
-          <MatchReport match={m} names={names} />
+          <MatchReport match={m} names={names} onOpen={setSheet} />
           <div className="actions">
             <button className="btn" onClick={() => run(() => draftApi.confirmMatch(m.id), 'Resultado confirmado.')}>
               Confirmar resultado
@@ -244,13 +223,13 @@ export function CupsView({ snap, run }) {
           <h3>Partidas jogadas</h3>
           <div className="match-reports">
             {played.map((m) => (
-              <MatchReport key={m.id} match={m} names={names} />
+              <MatchReport key={m.id} match={m} names={names} onOpen={setSheet} />
             ))}
           </div>
         </div>
       ) : null}
 
-      <CardRules settings={snap.settings} />
+      {sheet ? <MatchSheet match={sheet} names={names} cup={cupOf(sheet)} onClose={() => setSheet(null)} /> : null}
     </div>
   )
 }
@@ -391,7 +370,6 @@ export function TableView({ snap }) {
         )}
       </div>
 
-      <CardRules settings={snap.settings} />
     </div>
   )
 }
