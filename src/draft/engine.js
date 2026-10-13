@@ -7,6 +7,7 @@ import {
   CLUB_NAME_MIN,
   DEFAULT_SETTINGS,
   DRAW_BANDS,
+  DEFAULT_FORMATION,
   FORMATION_IDS,
   LOGIN_LOCK_MS,
   LOGIN_MAX_ATTEMPTS,
@@ -25,7 +26,9 @@ import {
 } from './lib/constants.js'
 import { hashPassword, randomToken, sha256B64, verifyPassword } from './lib/crypto.js'
 import { auctionStartPrice, buyPrice, priceTableRows, sellPrice } from './lib/prices.js'
-import { PLAYER_BANK_VERSION, buildPlayerBank, playersByBand } from './lib/seed-players.js'
+import { FORMATIONS } from '../data/formations.js'
+import { drawFormationRoster } from './lib/draw.js'
+import { PLAYER_BANK_VERSION, buildPlayerBank } from './lib/seed-players.js'
 import { simulateMatch } from './lib/sim.js'
 import { computeStandings, knockoutBracket, roundRobinFixtures } from './lib/standings.js'
 import {
@@ -320,6 +323,7 @@ function publicClub(state, club, { privateView = false } = {}) {
     primary: club.primary,
     secondary: club.secondary,
     crest: club.crest,
+    preferredFormation: club.preferredFormation || DEFAULT_FORMATION,
     setupComplete: club.setupComplete,
     rosterCount: roster.length,
     maxRoster: state.settings.maxRoster || MAX_ROSTER,
@@ -621,6 +625,8 @@ export class DraftEngine {
       const slug = slugName(name)
       const existing = Object.values(state.clubs).find((c) => slugName(c.name) === slug && c.id !== user.clubId)
       if (existing) throw new DraftError('Já existe um clube com esse nome.')
+      const formation = payload.formation
+      if (!FORMATION_IDS.includes(formation)) throw new DraftError('Escolha a formação preferida do clube.')
       const primary = payload.primary || '#ffd200'
       const secondary = payload.secondary || '#111111'
       const crest = payload.crest
@@ -640,6 +646,7 @@ export class DraftEngine {
           primary,
           secondary,
           crest,
+          preferredFormation: formation,
           setupComplete: true,
           balance: STARTING_COINS,
           reserves: {},
@@ -653,9 +660,10 @@ export class DraftEngine {
         club.primary = primary
         club.secondary = secondary
         club.crest = crest
+        club.preferredFormation = formation
         club.setupComplete = true
       }
-      audit(state, actor, 'criar_clube', { clubId: club.id, name })
+      audit(state, actor, 'criar_clube', { clubId: club.id, name, formation })
       return publicClub(state, club, { privateView: true })
     })
   }
@@ -690,33 +698,34 @@ export class DraftEngine {
       const result = []
       const rand = () => crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32
       for (const club of clubs) {
+        const formation = FORMATION_IDS.includes(club.preferredFormation) ? club.preferredFormation : DEFAULT_FORMATION
+        const slotCodes = FORMATIONS[formation].map((slot) => slot.code)
+        const available = Object.values(state.players).filter(
+          (p) => p.status === PLAYER_STATUS.FREE && !p.clubId && (allowShare || !used.has(p.id)),
+        )
+        const drawn = drawFormationRoster({ players: available, bands: DRAW_BANDS, slotCodes, rand })
+        if (!drawn.ok && drawn.reason === 'band') {
+          throw new DraftError(
+            `Banco insuficiente na faixa ${drawn.band.label}: preciso de ${drawn.need}, há ${drawn.have}.`,
+            409,
+            'BANK',
+          )
+        }
+        if (!drawn.ok) {
+          throw new DraftError(
+            `Não há jogadores livres para cobrir a posição ${drawn.missing} do ${formation} de ${club.name} dentro das faixas do sorteio.`,
+            409,
+            'BANK',
+          )
+        }
         const taken = []
-        for (const band of DRAW_BANDS) {
-          const pool = playersByBand(Object.values(state.players), band.min, band.max, {
-            freeOnly: true,
-            excludeIds: allowShare ? new Set() : used,
-          })
-          if (pool.length < band.count) {
-            throw new DraftError(
-              `Banco insuficiente na faixa ${band.label}: preciso de ${band.count}, há ${pool.length}.`,
-              409,
-              'BANK',
-            )
-          }
-          const shuffled = [...pool]
-          for (let i = shuffled.length - 1; i > 0; i--) {
-            const j = Math.floor(rand() * (i + 1))
-            ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
-          }
-          for (let i = 0; i < band.count; i++) {
-            const player = shuffled[i]
-            transferPlayer(state, player, club.id, 'sorteio')
-            used.add(player.id)
-            taken.push(player.id)
-          }
+        for (const player of drawn.players) {
+          transferPlayer(state, player, club.id, 'sorteio')
+          used.add(player.id)
+          taken.push(player.id)
         }
         if (taken.length !== STARTING_ROSTER) throw new DraftError('Sorteio não fechou 22 jogadores.', 500)
-        result.push({ clubId: club.id, name: club.name, playerIds: taken })
+        result.push({ clubId: club.id, name: club.name, formation, playerIds: taken, covered: drawn.covered })
         notifyClub(state, club.id, 'sorteio', 'Elenco sorteado', 'O administrador sorteou os 22 jogadores iniciais do seu clube.')
       }
       const draw = { id: nid('drw'), at: state._now, actorId: actor.id, justification: justification || null, result }
@@ -1130,7 +1139,7 @@ export class DraftEngine {
       requireParticipant(actor, state)
       const club = clubOf(state, actor)
       const championshipId = payload.championshipId || 'geral'
-      const formation = FORMATION_IDS.includes(payload.formation) ? payload.formation : '4-3-3'
+      const formation = FORMATION_IDS.includes(payload.formation) ? payload.formation : club.preferredFormation || DEFAULT_FORMATION
       const starters = payload.starters || []
       const bench = payload.bench || []
       if (starters.length !== (state.settings.startersCount || STARTERS_COUNT)) {

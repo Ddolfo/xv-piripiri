@@ -1,5 +1,7 @@
 /** Regras oficiais e padrões do Draft XV. Valores da tabela de preços ficam em prices.js. */
 
+import { FORMATION_KEYS } from '../../data/formations.js'
+
 export const ADMIN_USERNAME = 'ddolfo.draft'
 
 export const STARTING_COINS = 15000
@@ -44,7 +46,8 @@ export const STRATEGY_PRESETS = [
   { id: 'ofensiva-recuada', label: '1º tempo ofensivo e 2º recuado', first: 'ofensiva', second: 'recuada' },
 ]
 
-export const FORMATION_IDS = ['4-3-3', '4-2-3-1', '4-4-2', '3-5-2', '3-4-3', '5-3-2', '5-4-1']
+export const FORMATION_IDS = FORMATION_KEYS
+export const DEFAULT_FORMATION = '4-3-3'
 
 export const PLAYER_STATUS = {
   FREE: 'livre',

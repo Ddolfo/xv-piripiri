@@ -3,6 +3,8 @@ import { DraftEngine } from '../src/draft/engine.js'
 import { DRAW_BANDS, STARTING_COINS, STARTING_ROSTER } from '../src/draft/lib/constants.js'
 import { PRICE_BELOW_70, PRICE_TABLE, buyPrice, sellPrice } from '../src/draft/lib/prices.js'
 import { createMemoryStore } from '../src/draft/store.js'
+import { positionTiers } from '../src/draft/lib/draw.js'
+import { FORMATIONS, FORMATION_KEYS } from '../src/data/formations.js'
 
 const crest = {
   shape: 'heater',
@@ -41,11 +43,13 @@ async function setupWorld() {
   await engine.tick()
   const admin = (await login(engine, 'ddolfo.draft', 'admin-secret-12')).actor
   const users = []
-  for (const name of ['clube.alfa', 'clube.beta', 'clube.gama']) {
+  const formations = { 'clube.alfa': '4-3-3', 'clube.beta': '5-3-2', 'clube.gama': '3-4-2-1' }
+  for (const name of Object.keys(formations)) {
     await engine.createParticipant(admin, { username: name, password: 'senha-segura-99', displayName: name })
     const { actor } = await login(engine, name, 'senha-segura-99')
     await engine.setupClub(actor, {
       name: name.replace('.', ' ').toUpperCase(),
+      formation: formations[name],
       primary: '#ffd200',
       secondary: '#102318',
       crest,
@@ -62,6 +66,23 @@ function bandsOf(players) {
     ...b,
     got: players.filter((p) => p.overall >= b.min && p.overall <= b.max).length,
   }))
+}
+
+function coversFormation(roster, formation) {
+  const slots = FORMATIONS[formation].map((s) => s.code)
+  const accepts = slots.map((code) => positionTiers(code).flat())
+  const used = new Set()
+  const place = (i) => {
+    if (i === slots.length) return true
+    for (const p of roster) {
+      if (used.has(p.id) || !accepts[i].includes(p.position)) continue
+      used.add(p.id)
+      if (place(i + 1)) return true
+      used.delete(p.id)
+    }
+    return false
+  }
+  return place(0)
 }
 
 const tests = []
@@ -289,6 +310,7 @@ test('emblema com uma cor é recusado', async () => {
     () =>
       engine.setupClub(actor, {
         name: 'Delta FC',
+        formation: '4-4-2',
         primary: '#111111',
         secondary: '#111111',
         crest: { shape: 'circle', layers: [{ type: 'shape', fill: '#111111' }] },
@@ -314,6 +336,7 @@ test('mercado permanece fechado até o sorteio e o admin só abre depois', async
   const { actor } = await login(engine, 'clube.zeta', 'senha-segura-99')
   await engine.setupClub(actor, {
     name: 'Zeta FC',
+    formation: '4-2-3-1',
     primary: '#ffd200',
     secondary: '#102318',
     crest,
@@ -373,6 +396,81 @@ test('admin exclui participante criado e libera o elenco', async () => {
   assert.equal(player.clubId, null)
   assert.equal(player.status, 'livre')
   assert.ok(after.audit.some((a) => a.action === 'excluir_participante'))
+})
+
+test('sorteio cobre todas as posições da formação preferida e mantém as faixas', async () => {
+  const { engine, users } = await setupWorld()
+  for (const actor of users) {
+    const { club } = await engine.snapshot(actor)
+    assert.ok(FORMATION_KEYS.includes(club.preferredFormation))
+    assert.equal(club.roster.length, STARTING_ROSTER)
+    for (const band of bandsOf(club.roster)) assert.equal(band.got, band.count, band.label)
+    assert.ok(coversFormation(club.roster, club.preferredFormation), `${club.name} sem cobertura do ${club.preferredFormation}`)
+  }
+})
+
+test('cadastro do clube sem formação é recusado', async () => {
+  const { engine, admin } = await setupWorld()
+  await engine.createParticipant(admin, { username: 'clube.eta', password: 'senha-segura-99', displayName: 'Eta' })
+  const { actor } = await login(engine, 'clube.eta', 'senha-segura-99')
+  await assert.rejects(
+    () => engine.setupClub(actor, { name: 'Eta FC', primary: '#ffd200', secondary: '#102318', crest }),
+    /formação/,
+  )
+  await assert.rejects(
+    () => engine.setupClub(actor, { name: 'Eta FC', formation: '9-9-9', primary: '#ffd200', secondary: '#102318', crest }),
+    /formação/,
+  )
+})
+
+test('escalação aceita qualquer formação do campinho', async () => {
+  const { engine, users } = await setupWorld()
+  const { club } = await engine.snapshot(users[0])
+  const ids = club.roster.map((p) => p.id)
+  await engine.saveLineup(users[0], {
+    formation: '4-1-2-1-2',
+    starters: ids.slice(0, 11),
+    bench: ids.slice(11, 18),
+    strategyPreset: 'equilibrada',
+  })
+  const after = await engine.snapshot(users[0])
+  const saved = Object.values(after.lineups || {}).find((l) => l.clubId === club.id) || after.lineups?.[`${club.id}:geral`]
+  assert.equal(saved?.formation, '4-1-2-1-2')
+})
+
+test('estresse: 8 clubes em todas as formações, 25 sorteios seguidos', async () => {
+  const nowRef = { t: 1_700_000_000_000 }
+  const engine = engineAt(nowRef)
+  await engine.tick()
+  const admin = (await login(engine, 'ddolfo.draft', 'admin-secret-12')).actor
+  const actors = []
+  for (let i = 0; i < 8; i++) {
+    const username = `clube.s${i}`
+    await engine.createParticipant(admin, { username, password: 'senha-segura-99', displayName: username })
+    const { actor } = await login(engine, username, 'senha-segura-99')
+    await engine.setupClub(actor, {
+      name: `Estresse ${i}`,
+      formation: FORMATION_KEYS[i % FORMATION_KEYS.length],
+      primary: '#ffd200',
+      secondary: '#102318',
+      crest,
+    })
+    actors.push(actor)
+  }
+  await engine.drawRosters(admin)
+  for (let round = 0; round < 25; round++) {
+    if (round) await engine.drawRosters(admin, { justification: `rodada ${round}` })
+    const seen = new Set()
+    for (const actor of actors) {
+      const { club } = await engine.snapshot(actor)
+      for (const band of bandsOf(club.roster)) assert.equal(band.got, band.count, band.label)
+      assert.ok(coversFormation(club.roster, club.preferredFormation), `rodada ${round}: ${club.preferredFormation}`)
+      for (const p of club.roster) {
+        assert.equal(seen.has(p.id), false, 'jogador repetido entre clubes')
+        seen.add(p.id)
+      }
+    }
+  }
 })
 
 let failed = 0

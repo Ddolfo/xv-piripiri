@@ -611,3 +611,41 @@
   .auction-row .auction-timer,
   .auction-row .btn { grid-column: 1 / -1; }
 }
+
+/* Escolha da formação no cadastro do clube. */
+.onboarding { max-width: 1040px; margin: 40px auto 0; padding: 32px; }
+.onboarding .actions { margin-top: 24px; }
+.formation-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+.formation-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 12px 12px;
+  border: 1px solid transparent;
+  border-radius: 18px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+.formation-option:hover { background: var(--surface-3); }
+.formation-option.on { border-color: var(--gold); background: rgba(255, 214, 10, 0.08); }
+.formation-option b { font-size: 17px; font-weight: 600; letter-spacing: -0.02em; }
+.formation-option small { color: var(--muted); font-size: 11px; text-align: center; line-height: 1.35; }
+.mini-pitch { width: 100%; max-width: 104px; height: auto; }
+.mini-pitch-turf { fill: #17462b; }
+.mini-pitch-line { fill: none; stroke: rgba(255, 255, 255, 0.18); stroke-width: 0.8; }
+.mini-dot { fill: var(--ink); }
+.mini-dot.gk { fill: var(--gold); }
+.formation-option.on .mini-dot:not(.gk) { fill: var(--gold); }
+@media (max-width: 720px) {
+  .onboarding { margin-top: 20px; padding: 20px; }
+  .formation-picker { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

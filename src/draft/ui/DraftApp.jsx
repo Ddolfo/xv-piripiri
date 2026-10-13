@@ -5,6 +5,7 @@ import { emptyCrest } from './crest-lib.js'
 import CrestEditor from './CrestEditor.jsx'
 import CrestMark from './CrestMark.jsx'
 import FormModal from './FormModal.jsx'
+import FormationPicker from './FormationPicker.jsx'
 import LineupView from './LineupView.jsx'
 import PlayerFace from './PlayerFace.jsx'
 import './draft.css'
@@ -117,7 +118,7 @@ export default function DraftApp() {
   const [ok, setOk] = useState('')
   const [busy, setBusy] = useState(false)
   const [login, setLogin] = useState({ username: '', password: '' })
-  const [onboard, setOnboard] = useState({ step: 1, name: '', primary: '#ffd200', secondary: '#145c32', crest: null })
+  const [onboard, setOnboard] = useState({ step: 1, name: '', formation: '', primary: '#ffd200', secondary: '#145c32', crest: null })
   const [modal, setModal] = useState(null)
 
   async function refresh() {
@@ -235,7 +236,7 @@ export default function DraftApp() {
           <div>
             <h2>{club.name}</h2>
             <p>
-              {club.participantName} · {club.rosterCount}/{club.maxRoster} jogadores ·{' '}
+              {club.participantName} · {club.preferredFormation} · {club.rosterCount}/{club.maxRoster} jogadores ·{' '}
               {drawDone ? `mercado ${snap.marketStatus}` : 'aguardando o sorteio oficial · mercado fechado'}
             </p>
           </div>
@@ -280,11 +281,14 @@ export default function DraftApp() {
 function Onboarding({ onboard, setOnboard, err, busy, run, onLogout }) {
   const crest = onboard.crest || emptyCrest(onboard.primary, onboard.secondary)
   const colors = uniqueColors({ ...crest, primary: onboard.primary, secondary: onboard.secondary })
-  const canFinish = onboard.name.trim().length >= 3 && colors.length >= 2 && colors.length <= 5
+  const canFinish = onboard.name.trim().length >= 3 && !!onboard.formation && colors.length >= 2 && colors.length <= 5
+  const LAST = 5
+  const canNext =
+    (onboard.step === 1 && onboard.name.trim().length >= 3) || (onboard.step === 2 && !!onboard.formation) || onboard.step > 2
   return (
-    <section className="draft-xv card">
+    <section className="draft-xv card onboarding">
       <div className="steps">
-        {['Nome', 'Cores', 'Emblema', 'Concluir'].map((label, i) => (
+        {['Nome', 'Formação', 'Cores', 'Emblema', 'Concluir'].map((label, i) => (
           <span key={label} className={onboard.step === i + 1 ? 'on' : ''}>
             {i + 1}. {label}
           </span>
@@ -295,9 +299,20 @@ function Onboarding({ onboard, setOnboard, err, busy, run, onLogout }) {
         <div className="field">
           <label>Nome do clube</label>
           <input value={onboard.name} maxLength={32} onChange={(e) => setOnboard({ ...onboard, name: e.target.value })} />
+          <small className="muted">De 3 a 32 caracteres.</small>
         </div>
       )}
       {onboard.step === 2 && (
+        <div>
+          <h3>Formação preferida</h3>
+          <p className="muted">
+            O sorteio garante pelo menos um jogador para cada posição desta formação. O restante do elenco sai aleatório,
+            dentro das mesmas faixas de over.
+          </p>
+          <FormationPicker value={onboard.formation} onChange={(formation) => setOnboard({ ...onboard, formation })} />
+        </div>
+      )}
+      {onboard.step === 3 && (
         <div className="color-row">
           <label className="field">
             Cor principal
@@ -309,7 +324,7 @@ function Onboarding({ onboard, setOnboard, err, busy, run, onLogout }) {
           </label>
         </div>
       )}
-      {onboard.step === 3 && (
+      {onboard.step === 4 && (
         <CrestEditor
           primary={onboard.primary}
           secondary={onboard.secondary}
@@ -317,12 +332,14 @@ function Onboarding({ onboard, setOnboard, err, busy, run, onLogout }) {
           onChange={(c) => setOnboard({ ...onboard, crest: c })}
         />
       )}
-      {onboard.step === 4 && (
+      {onboard.step === LAST && (
         <div className="club-cell">
           <CrestMark crest={{ ...crest, primary: onboard.primary, secondary: onboard.secondary }} size={96} />
           <div>
             <h3>{onboard.name}</h3>
-            <p className="muted">O elenco inicial será sorteado depois pelo administrador.</p>
+            <p className="muted">
+              Formação preferida {onboard.formation || '—'}. O elenco inicial será sorteado depois pelo administrador.
+            </p>
           </div>
         </div>
       )}
@@ -332,12 +349,12 @@ function Onboarding({ onboard, setOnboard, err, busy, run, onLogout }) {
             Voltar
           </button>
         )}
-        {onboard.step < 4 && (
-          <button className="btn" onClick={() => setOnboard({ ...onboard, step: onboard.step + 1 })}>
+        {onboard.step < LAST && (
+          <button className="btn" disabled={!canNext} onClick={() => setOnboard({ ...onboard, step: onboard.step + 1 })}>
             Continuar
           </button>
         )}
-        {onboard.step === 4 && (
+        {onboard.step === LAST && (
           <button
             className="btn"
             disabled={!canFinish || busy}
@@ -346,6 +363,7 @@ function Onboarding({ onboard, setOnboard, err, busy, run, onLogout }) {
                 () =>
                   draftApi.setupClub({
                     name: onboard.name,
+                    formation: onboard.formation,
                     primary: onboard.primary,
                     secondary: onboard.secondary,
                     crest: { ...crest, primary: onboard.primary, secondary: onboard.secondary },
@@ -961,7 +979,8 @@ function AdminTeams({ snap }) {
                 <b>{c.name}</b>
                 <small className="muted">
                   {' '}
-                  {c.participantName} · {c.rosterCount}/{c.maxRoster} jogadores · {coins(c.spendable ?? c.balance)}
+                  {c.participantName} · {c.preferredFormation} · {c.rosterCount}/{c.maxRoster} jogadores ·{' '}
+                  {coins(c.spendable ?? c.balance)}
                 </small>
               </span>
             </summary>
