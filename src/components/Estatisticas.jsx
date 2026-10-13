@@ -197,7 +197,7 @@ export default function Estatisticas({ store }) {
       setStatus(`${list.length} clube(s) encontrado(s).`)
       if (!list.length) {
         setError(
-          'Nenhum clube retornou. Confira o nome exato no FC 26 e a plataforma (geração atual = PS5 / Xbox Series / PC).',
+          'Nenhum clube retornou. Confira o nome exato no FC 27 e a plataforma (geração atual = PS5 / Xbox Series / PC).',
         )
       }
     } catch (e) {

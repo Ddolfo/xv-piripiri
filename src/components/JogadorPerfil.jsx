@@ -248,7 +248,7 @@ export default function JogadorPerfil({ player, store, onClose }) {
             <div>
               <span>Nota do Pro</span>
               <b>{overall ? overall : '—'}</b>
-              <small>De 1 a 99 no FC 26</small>
+              <small>De 1 a 99 no FC 27</small>
             </div>
             <div>
               <span>Altura</span>
@@ -357,7 +357,7 @@ export default function JogadorPerfil({ player, store, onClose }) {
                     value={build?.lastLabel || '—'}
                     hint={
                       build?.lastLine
-                        ? `${build.lastLine} no player builder do FC 26`
+                        ? `${build.lastLine} no player builder do FC 27`
                         : 'A EA só manda o arquétipo por partida'
                     }
                   />

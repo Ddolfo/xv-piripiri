@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { FORMATIONS } from '../../data/formations.js'
 import { STRATEGY_PRESETS } from '../lib/constants.js'
 import { draftApi, overallTone } from './api.js'
+import PlayerFace from './PlayerFace.jsx'
 
 const DRAG = 'application/x-draft-xv-player'
 
@@ -161,7 +162,7 @@ export default function LineupView({ snap, run }) {
                   setPick((cur) => (cur === p.id ? null : p.id))
                 }}
               >
-                {p.image ? <img src={p.image} alt="" /> : <span className="lineup-face" />}
+                <PlayerFace src={p.image} name={p.name} className="lineup-face" />
                 <span className={`ovr ${overallTone(p.overall)}`}>{p.overall}</span>
                 <span className="lineup-row-text">
                   <b>{p.name}</b>

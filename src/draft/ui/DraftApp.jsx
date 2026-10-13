@@ -1,30 +1,34 @@
 import { useEffect, useState } from 'react'
 import { uniqueColors } from '../lib/util.js'
-import { coins, draftApi, overallTone, setDraftToken } from './api.js'
+import { coins, draftApi, formatLabel, ledgerLabel, overallTone, setDraftToken, statusLabel } from './api.js'
 import { emptyCrest } from './crest-lib.js'
 import CrestEditor from './CrestEditor.jsx'
 import CrestMark from './CrestMark.jsx'
+import FormModal from './FormModal.jsx'
 import LineupView from './LineupView.jsx'
+import PlayerFace from './PlayerFace.jsx'
 import './draft.css'
 
 function PlayerCard({ player, actions }) {
   return (
     <article className="fut-card">
-      <div className="fut-face-wrap">
-        {player.image ? <img className="fut-face" src={player.image} alt="" /> : null}
-        <div className={`ovr ${overallTone(player.overall)}`}>{player.overall}</div>
-      </div>
-      <div>
-        <h4>{player.name}</h4>
+      <PlayerFace src={player.image} name={player.name} />
+      <div className="fut-body">
+        <div className="fut-title">
+          <h4>{player.name}</h4>
+          <span className={`ovr ${overallTone(player.overall)}`}>{player.overall}</span>
+        </div>
         <small>
-          {player.position}
-          {player.club ? ` · ${player.club}` : ''}
-          {player.nation ? ` · ${player.nation}` : ''}
-          {player.status ? ` · ${player.status}` : ''}
+          {[player.position, player.club, player.nation, player.status].filter(Boolean).join(' · ')}
         </small>
         {player.buy != null && (
-          <div>
-            <small>Compra {coins(player.buy)} · Venda {coins(player.sell)}</small>
+          <div className="fut-price">
+            <span>
+              Compra <b>{Number(player.buy).toLocaleString('pt-BR')}</b>
+            </span>
+            <span>
+              Venda <b>{Number(player.sell).toLocaleString('pt-BR')}</b>
+            </span>
           </div>
         )}
       </div>
@@ -90,7 +94,7 @@ function Modal({ title, children, onClose }) {
 }
 
 function Timer({ endsAt }) {
-  const [now, setNow] = useState(0)
+  const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(t)
@@ -226,7 +230,7 @@ export default function DraftApp() {
   return (
     <section className="draft-xv">
       <div className="draft-hero">
-        <div className="club-cell" style={{ gap: 14 }}>
+        <div className="club-cell">
           <CrestMark crest={club.crest} size={72} />
           <div>
             <h2>{club.name}</h2>
@@ -240,6 +244,17 @@ export default function DraftApp() {
           <span>Carteira</span>
           <b>{coins(club.spendable)}</b>
           {club.reserved ? <small className="muted">Reservado em lances: {coins(club.reserved)}</small> : null}
+          <button
+            className="link-btn draft-logout"
+            onClick={() =>
+              run(async () => {
+              await draftApi.logout()
+              setDraftToken('')
+            })
+            }
+          >
+            Sair
+          </button>
         </div>
       </div>
       {err ? <div className="alert">{err}</div> : null}
@@ -250,17 +265,6 @@ export default function DraftApp() {
             {label}
           </button>
         ))}
-        <button
-          className="btn ghost"
-          onClick={() =>
-            run(async () => {
-              await draftApi.logout()
-              setDraftToken('')
-            })
-          }
-        >
-          Sair
-        </button>
       </div>
       {currentTab === 'clube' && <ClubView club={club} marketOpen={marketOpen} run={run} setModal={setModal} />}
       {currentTab === 'formacao' && <LineupView snap={snap} run={run} />}
@@ -419,8 +423,11 @@ function ClubView({ club, marketOpen, run, setModal }) {
                 .map((l) => (
                   <tr key={l.id}>
                     <td>{new Date(l.at).toLocaleString('pt-BR')}</td>
-                    <td>{l.reason}</td>
-                    <td>{coins(l.amount)}</td>
+                    <td>{ledgerLabel(l.reason)}</td>
+                    <td className={l.amount < 0 ? 'money-out' : 'money-in'}>
+                      {l.amount > 0 ? '+' : ''}
+                      {coins(l.amount)}
+                    </td>
                   </tr>
                 ))}
             </tbody>
@@ -440,6 +447,87 @@ function MarketView({ snap, run, setModal }) {
     if (ovr && String(p.overall) !== ovr) return false
     return true
   })
+  const allPlayers = [
+    ...(snap.market || []),
+    ...(snap.club?.roster || []),
+    ...(snap.clubs || []).flatMap((c) => c.roster || []),
+  ]
+  const playerName = (id) => allPlayers.find((x) => x.id === id)?.name || 'Jogador'
+  const clubName = (id) => (id === snap.club?.id ? 'Seu clube' : snap.clubs?.find((c) => c.id === id)?.name || 'Clube')
+  const closeModal = () => setModal(null)
+
+  function askBid(a, p, last) {
+    const min = (last?.amount || 0) + (snap.settings?.minBidIncrement || 100)
+    setModal(
+      <FormModal
+        title={`Lance por ${p.name}`}
+        intro={`Lance atual: ${coins(last?.amount || 0)}. O próximo precisa ser de pelo menos ${coins(min)}.`}
+        fields={[{ name: 'amount', label: 'Seu lance em XV-Coins', type: 'number', min, defaultValue: String(min) }]}
+        submitLabel="Dar lance"
+        onClose={closeModal}
+        onSubmit={({ amount }) => run(() => draftApi.bid(a.id, amount), 'Lance registrado.')}
+      />,
+    )
+  }
+
+  function askOffer(c, p) {
+    setModal(
+      <FormModal
+        title={`Proposta por ${p.name}`}
+        intro={`${c.name} decide se aceita. Seu saldo disponível: ${coins(snap.club.spendable)}.`}
+        fields={[{ name: 'amount', label: 'Valor oferecido em XV-Coins', type: 'number', min: 1, defaultValue: String(p.buy || '') }]}
+        submitLabel="Enviar proposta"
+        onClose={closeModal}
+        onSubmit={({ amount }) =>
+          run(() => draftApi.propose({ toClubId: c.id, requestPlayerIds: [p.id], coinsFrom: amount }), 'Proposta enviada.')
+        }
+      />,
+    )
+  }
+
+  function askTrade(c, p) {
+    const mine = [...(snap.club.roster || [])].sort((x, y) => y.overall - x.overall)
+    if (!mine.length) return
+    setModal(
+      <FormModal
+        title={`Troca por ${p.name}`}
+        intro={`Escolha quem do seu elenco vai para o ${c.name}.`}
+        fields={[
+          {
+            name: 'offer',
+            label: 'Jogador oferecido',
+            type: 'select',
+            options: mine.map((x) => ({ value: x.id, label: `${x.name} · ${x.position} · ${x.overall}` })),
+          },
+          { name: 'extra', label: 'Complemento em XV-Coins', type: 'number', min: 0, defaultValue: '0', hint: 'Deixe 0 para uma troca simples.' },
+        ]}
+        submitLabel="Propor troca"
+        onClose={closeModal}
+        onSubmit={({ offer, extra }) =>
+          run(
+            () => draftApi.propose({ toClubId: c.id, requestPlayerIds: [p.id], offerPlayerIds: [offer], coinsFrom: extra || 0 }),
+            'Troca proposta.',
+          )
+        }
+      />,
+    )
+  }
+
+  function askCounter(p) {
+    setModal(
+      <FormModal
+        title="Contraproposta"
+        intro="Ajuste o valor que o clube de origem paga nesta negociação."
+        fields={[{ name: 'coinsFrom', label: 'Novo valor em XV-Coins', type: 'number', min: 0, defaultValue: String(p.coinsFrom || 0) }]}
+        submitLabel="Enviar contraproposta"
+        onClose={closeModal}
+        onSubmit={({ coinsFrom }) =>
+          run(() => draftApi.respondProposal(p.id, { action: 'contraproposta', coinsFrom }), 'Contraproposta enviada.')
+        }
+      />,
+    )
+  }
+
   if (snap.marketStatus !== 'aberto') {
     return (
       <div className="card">
@@ -466,7 +554,7 @@ function MarketView({ snap, run, setModal }) {
         <div className="card">
           <div className="filters">
             <input placeholder="Buscar nome" value={q} onChange={(e) => setQ(e.target.value)} />
-            <input placeholder="Over" value={ovr} onChange={(e) => setOvr(e.target.value)} />
+            <input placeholder="Nota" inputMode="numeric" value={ovr} onChange={(e) => setOvr(e.target.value)} />
           </div>
           <div className="player-grid">
             {list
@@ -508,27 +596,28 @@ function MarketView({ snap, run, setModal }) {
       )}
       {area === 'leiloes' && (
         <div className="card">
+          {!(snap.auctions || []).some((a) => a.status === 'aberto') ? (
+            <p className="draft-empty">Nenhum leilão aberto agora. Inicie um pela aba Jogadores livres.</p>
+          ) : null}
           {(snap.auctions || [])
             .filter((a) => a.status === 'aberto')
             .map((a) => {
-              const p = (snap.market || []).find((x) => x.id === a.playerId) || { name: a.playerId, overall: '—' }
+              const p = allPlayers.find((x) => x.id === a.playerId) || { name: 'Jogador', overall: '—' }
               const last = a.bids[a.bids.length - 1]
               return (
-                <div key={a.id} className="fut-card" style={{ marginBottom: 10, gridTemplateColumns: '1fr auto' }}>
+                <div key={a.id} className="auction-row">
+                  <PlayerFace src={p.image} name={p.name} />
                   <div>
                     <h4>
-                      {p.name} · {p.overall}
+                      {p.name} <span className={`ovr ${overallTone(p.overall)}`}>{p.overall}</span>
                     </h4>
-                    <Timer endsAt={a.endsAt} />
-                    <small>Lance atual: {coins(last?.amount || 0)}</small>
+                    <small className="muted">
+                      Lance atual {coins(last?.amount || 0)}
+                      {last?.clubId ? ` · ${clubName(last.clubId)}` : ''}
+                    </small>
                   </div>
-                  <button
-                    className="btn"
-                    onClick={() => {
-                      const amount = Number(prompt('Novo lance em XV-Coins', String((last?.amount || 0) + (snap.settings?.minBidIncrement || 100))))
-                      if (amount) run(() => draftApi.bid(a.id, amount), 'Lance registrado.')
-                    }}
-                  >
+                  <Timer endsAt={a.endsAt} />
+                  <button className="btn" onClick={() => askBid(a, p, last)}>
                     Dar lance
                   </button>
                 </div>
@@ -541,7 +630,7 @@ function MarketView({ snap, run, setModal }) {
           {(snap.clubs || [])
             .filter((c) => c.id !== snap.club.id)
             .map((c) => (
-              <details key={c.id} className="card" style={{ marginBottom: 8 }}>
+              <details key={c.id} className="market-club">
                 <summary className="club-cell">
                   <CrestMark crest={c.crest} size={36} />
                   <b>{c.name}</b>
@@ -558,36 +647,13 @@ function MarketView({ snap, run, setModal }) {
                         <>
                           <button
                             className="btn"
-                            onClick={() => {
-                              const amount = Number(prompt(`Oferecer XV-Coins por ${p.name}`))
-                              if (amount)
-                                run(
-                                  () => draftApi.propose({ toClubId: c.id, requestPlayerIds: [p.id], coinsFrom: amount }),
-                                  'Proposta enviada.',
-                                )
-                            }}
+                            onClick={() => askOffer(c, p)}
                           >
                             Proposta em XV-Coins
                           </button>
                           <button
                             className="btn ghost"
-                            onClick={() => {
-                              const mine = snap.club.roster.map((x) => x.name).join(', ')
-                              const named = prompt(`Seu elenco: ${mine}\nNome do jogador para oferecer em troca:`)
-                              const offer = snap.club.roster.find((x) => x.name.toLowerCase() === String(named || '').toLowerCase())
-                              if (!offer) return
-                              const extra = Number(prompt('Complemento em XV-Coins (0 se for só troca)') || 0)
-                              run(
-                                () =>
-                                  draftApi.propose({
-                                    toClubId: c.id,
-                                    requestPlayerIds: [p.id],
-                                    offerPlayerIds: [offer.id],
-                                    coinsFrom: extra || 0,
-                                  }),
-                                'Troca proposta.',
-                              )
-                            }}
+                            onClick={() => askTrade(c, p)}
                           >
                             Propor troca
                           </button>
@@ -602,40 +668,50 @@ function MarketView({ snap, run, setModal }) {
       )}
       {area === 'propostas' && (
         <div className="card">
-          {(snap.proposals || []).map((p) => (
-            <div key={p.id} className="note">
-              <b>{p.status}</b>
-              <div>
-                Pedidos: {(p.requestPlayerIds || []).join(', ')} · Oferecidos: {(p.offerPlayerIds || []).join(', ') || '—'} ·{' '}
-                {coins(p.coinsFrom)}
-              </div>
-              {['pendente', 'contraproposta'].includes(p.status) && (
-                <div className="actions">
-                  <button className="btn" onClick={() => run(() => draftApi.respondProposal(p.id, { action: 'aceitar' }), 'Proposta aceita.')}>
-                    Aceitar
-                  </button>
-                  <button className="btn ghost" onClick={() => run(() => draftApi.respondProposal(p.id, { action: 'recusar' }))}>
-                    Recusar
-                  </button>
-                  <button
-                    className="btn ghost"
-                    onClick={() => {
-                      const coinsFrom = Number(prompt('Novo valor em XV-Coins oferecido pelo clube de origem', String(p.coinsFrom || 0)))
-                      if (Number.isFinite(coinsFrom))
-                        run(() => draftApi.respondProposal(p.id, { action: 'contraproposta', coinsFrom }), 'Contraproposta enviada.')
-                    }}
-                  >
-                    Contraproposta
-                  </button>
-                  {p.fromClubId === snap.club.id && (
-                    <button className="btn danger" onClick={() => run(() => draftApi.respondProposal(p.id, { action: 'cancelar' }))}>
-                      Cancelar
-                    </button>
-                  )}
+          {!(snap.proposals || []).length ? <p className="draft-empty">Nenhuma proposta por enquanto.</p> : null}
+          {(snap.proposals || []).map((p) => {
+            const mine = snap.club?.id
+            const open = ['pendente', 'contraproposta'].includes(p.status)
+            const canAnswer = open && ((p.status === 'pendente' && p.toClubId === mine) || (p.status === 'contraproposta' && p.fromClubId === mine))
+            const canCancel = open && p.fromClubId === mine
+            return (
+              <div key={p.id} className="note proposal">
+                <div className="proposal-head">
+                  <b>
+                    {clubName(p.fromClubId)} → {clubName(p.toClubId)}
+                  </b>
+                  <span className="badge">{statusLabel(p.status)}</span>
                 </div>
-              )}
-            </div>
-          ))}
+                <div className="muted">
+                  Pede {(p.requestPlayerIds || []).map(playerName).join(', ') || '—'}
+                  {(p.offerPlayerIds || []).length ? ` · oferece ${p.offerPlayerIds.map(playerName).join(', ')}` : ''}
+                  {p.coinsFrom ? ` · ${coins(p.coinsFrom)}` : ''}
+                </div>
+                {canAnswer || canCancel ? (
+                  <div className="actions">
+                    {canAnswer ? (
+                      <>
+                        <button className="btn" onClick={() => run(() => draftApi.respondProposal(p.id, { action: 'aceitar' }), 'Proposta aceita.')}>
+                          Aceitar
+                        </button>
+                        <button className="btn ghost" onClick={() => run(() => draftApi.respondProposal(p.id, { action: 'recusar' }), 'Proposta recusada.')}>
+                          Recusar
+                        </button>
+                        <button className="btn ghost" onClick={() => askCounter(p)}>
+                          Contraproposta
+                        </button>
+                      </>
+                    ) : null}
+                    {canCancel ? (
+                      <button className="btn danger" onClick={() => run(() => draftApi.respondProposal(p.id, { action: 'cancelar' }), 'Proposta cancelada.')}>
+                        Cancelar
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
@@ -647,9 +723,13 @@ function CupsView({ snap, run }) {
     <div className="card">
       {(snap.championships || []).map((cup) => (
         <div key={cup.id} style={{ marginBottom: 18 }}>
-          <h3>
-            {cup.name} · {cup.format} · {cup.status}
-          </h3>
+          <h3>{cup.name}</h3>
+          <p className="muted">
+            {formatLabel(cup.format)} · {statusLabel(cup.status)}
+          </p>
+          {!(cup.fixtures || []).length ? (
+            <p className="draft-empty">O calendário deste campeonato ainda não foi gerado pelo administrador.</p>
+          ) : (
           <div className="table-wrap">
             <table className="draft-table">
               <thead>
@@ -667,7 +747,7 @@ function CupsView({ snap, run }) {
                     <td>{f.round}</td>
                     <td>{snap.clubs?.find((c) => c.id === f.homeClubId)?.name || f.homeClubId}</td>
                     <td>{f.bye ? 'bye' : snap.clubs?.find((c) => c.id === f.awayClubId)?.name || f.awayClubId}</td>
-                    <td>{f.status}</td>
+                    <td>{statusLabel(f.status)}</td>
                     <td>
                       {f.status === 'pendente' && (
                         <button className="btn" onClick={() => run(() => draftApi.challenge(f.id), 'Desafio enviado.')}>
@@ -680,11 +760,15 @@ function CupsView({ snap, run }) {
               </tbody>
             </table>
           </div>
+          )}
         </div>
       ))}
+      {!(snap.championships || []).length ? (
+        <p className="draft-empty">Nenhum campeonato criado ainda.</p>
+      ) : null}
       {(snap.challenges || []).map((ch) => (
         <div key={ch.id} className="note">
-          Desafio {ch.status}
+          Desafio · {statusLabel(ch.status)}
           {ch.status === 'pendente' && ch.toClubId === snap.club.id && (
             <div className="actions">
               <button className="btn" onClick={() => run(() => draftApi.respondChallenge(ch.id, true), 'Desafio aceito.')}>
@@ -705,7 +789,7 @@ function CupsView({ snap, run }) {
       {(snap.matches || []).map((m) => (
         <div key={m.id} className="card" style={{ marginTop: 10 }}>
           <h3>
-            {m.homeGoals} x {m.awayGoals} · {m.status}
+            {m.homeGoals} x {m.awayGoals} · {statusLabel(m.status)}
           </h3>
           <ul className="match-timeline">
             {(m.result?.events || []).map((e, i) => (
@@ -734,10 +818,11 @@ function CupsView({ snap, run }) {
 function TableView({ snap }) {
   const [cupId, setCupId] = useState(snap.championships?.[0]?.id || '')
   const cup = (snap.championships || []).find((c) => c.id === cupId) || snap.championships?.[0]
-  if (!cup) return <div className="card">Nenhum campeonato ativo.</div>
+  if (!cup) return <div className="card draft-empty">Nenhum campeonato ativo.</div>
+  const clubName = (id) => snap.clubs?.find((c) => c.id === id)?.name || 'Clube'
   return (
     <div className="card">
-      <select value={cup.id} onChange={(e) => setCupId(e.target.value)}>
+      <select className="draft-select" value={cup.id} onChange={(e) => setCupId(e.target.value)}>
         {snap.championships.map((c) => (
           <option key={c.id} value={c.id}>
             {c.name}
@@ -764,7 +849,7 @@ function TableView({ snap }) {
             <tbody>
               {(cup.standings || []).map((r) => (
                 <tr key={r.clubId}>
-                  <td>{r.position}</td>
+                  <td>{r.position}º</td>
                   <td className="club-cell">
                     <CrestMark crest={r.crest} size={28} /> {r.name}
                   </td>
@@ -787,7 +872,8 @@ function TableView({ snap }) {
         <div>
           {(cup.fixtures || []).map((f) => (
             <div key={f.id} className="note">
-              Rodada {f.round}: {f.homeClubId} {f.bye ? ' (bye)' : `x ${f.awayClubId}`} · {f.status}
+              Rodada {f.round}: {clubName(f.homeClubId)}{' '}
+              {f.bye ? '(folga)' : `x ${clubName(f.awayClubId)}`} · {statusLabel(f.status)}
             </div>
           ))}
         </div>
@@ -804,6 +890,7 @@ function NotesView({ snap, run }) {
           Marcar todas como lidas
         </button>
       </div>
+      {!(snap.notifications || []).length ? <p className="draft-empty">Nenhuma notificação por enquanto.</p> : null}
       <div className="note-list">
         {(snap.notifications || [])
           .slice()
@@ -893,6 +980,7 @@ function AdminTeams({ snap }) {
 
 function AdminView({ snap, err, ok, busy, run }) {
   const [adminTab, setAdminTab] = useState('painel')
+  const [modal, setModal] = useState(null)
   const [user, setUser] = useState({ username: '', password: '', displayName: '' })
   const [cup, setCup] = useState({ name: 'Liga Draft XV', format: 'pontos-corridos' })
   const [just, setJust] = useState('')
@@ -914,7 +1002,7 @@ function AdminView({ snap, err, ok, busy, run }) {
           </p>
         </div>
         <button
-          className="btn ghost"
+          className="link-btn draft-logout"
           onClick={() =>
             run(async () => {
               await draftApi.logout()
@@ -942,7 +1030,7 @@ function AdminView({ snap, err, ok, busy, run }) {
         <div>
           <h3>Mercado da Bola</h3>
           <p>
-            Situação atual: <span className={`badge ${marketStatus}`}>{marketStatus}</span>
+            Situação atual: <span className={`badge ${marketStatus}`}>{statusLabel(marketStatus)}</span>
           </p>
           {drawDone ? (
             <p className="muted">Abra para liberar compras, vendas e leilões aos participantes. Feche para travar o mercado.</p>
@@ -996,6 +1084,7 @@ function AdminView({ snap, err, ok, busy, run }) {
               Criar conta
             </button>
           </div>
+          <h4 className="admin-sub">Contas</h4>
           <label className="field">
             Justificativa para excluir participante
             <input value={userJust} onChange={(e) => setUserJust(e.target.value)} placeholder="Obrigatória para excluir a conta" />
@@ -1016,8 +1105,8 @@ function AdminView({ snap, err, ok, busy, run }) {
                   <tr key={u.id}>
                     <td>{u.username}</td>
                     <td>{u.displayName}</td>
-                    <td>{u.status}</td>
-                    <td>
+                    <td>{statusLabel(u.status)}</td>
+                    <td className="row-actions">
                       <button
                         className="btn ghost"
                         onClick={() => run(() => draftApi.adminStatus(u.id, u.status === 'ativo' ? 'bloqueado' : 'ativo'))}
@@ -1026,10 +1115,20 @@ function AdminView({ snap, err, ok, busy, run }) {
                       </button>
                       <button
                         className="btn ghost"
-                        onClick={() => {
-                          const password = prompt(`Nova senha para ${u.username}`)
-                          if (password) run(() => draftApi.adminPassword(u.id, password), 'Senha redefinida.')
-                        }}
+                        onClick={() =>
+                          setModal(
+                            <FormModal
+                              title={`Nova senha para ${u.username}`}
+                              intro="A pessoa entra com essa senha no próximo acesso."
+                              fields={[{ name: 'password', label: 'Nova senha', type: 'password' }]}
+                              submitLabel="Redefinir senha"
+                              onClose={() => setModal(null)}
+                              onSubmit={({ password }) =>
+                                run(() => draftApi.adminPassword(u.id, password), 'Senha redefinida.').then(() => setModal(null))
+                              }
+                            />,
+                          )
+                        }
                       >
                         Senha
                       </button>
@@ -1067,7 +1166,11 @@ function AdminView({ snap, err, ok, busy, run }) {
               Sortear elencos
             </button>
           </div>
+        </div>
+      </div>
+      <div className="card admin-cups">
           <h3>Campeonatos</h3>
+          <p className="muted">Crie a competição, escolha os clubes e gere o calendário.</p>
           <label className="field">
             Nome
             <input value={cup.name} onChange={(e) => setCup({ ...cup, name: e.target.value })} />
@@ -1116,8 +1219,11 @@ function AdminView({ snap, err, ok, busy, run }) {
           {(snap.championships || []).map((c) => {
             const current = editIds[c.id] || c.clubIds || []
             return (
-              <div key={c.id} className="note">
-                <b>{c.name}</b> · {c.format} · {c.status}
+              <div key={c.id} className="admin-cup">
+                <b>{c.name}</b>{' '}
+                <span className="muted">
+                  · {formatLabel(c.format)} · {statusLabel(c.status)}
+                </span>
                 <ClubPicker
                   clubs={readyClubs}
                   users={snap.users}
@@ -1160,7 +1266,6 @@ function AdminView({ snap, err, ok, busy, run }) {
               </div>
             )
           })}
-        </div>
       </div>
       <div className="card">
         <h3>Tabela oficial de preços</h3>
@@ -1168,7 +1273,7 @@ function AdminView({ snap, err, ok, busy, run }) {
           <table className="draft-table">
             <thead>
               <tr>
-                <th>Over</th>
+                <th>Nota</th>
                 <th>Compra direta</th>
                 <th>Início do leilão</th>
                 <th>Venda ao mercado</th>
@@ -1189,6 +1294,9 @@ function AdminView({ snap, err, ok, busy, run }) {
       </div>
       <div className="card">
         <h3>Partidas em contestação</h3>
+        {!(snap.matches || []).some((m) => m.status === 'contestada') ? (
+          <p className="draft-empty">Nenhuma partida contestada.</p>
+        ) : null}
         {(snap.matches || [])
           .filter((m) => m.status === 'contestada' || m.status === 'analise')
           .map((m) => (
@@ -1224,7 +1332,7 @@ function AdminView({ snap, err, ok, busy, run }) {
                 <tr key={a.id}>
                   <td>{new Date(a.at).toLocaleString('pt-BR')}</td>
                   <td>{a.username}</td>
-                  <td>{a.action}</td>
+                  <td>{statusLabel(a.action)}</td>
                 </tr>
               ))}
           </tbody>
@@ -1232,6 +1340,7 @@ function AdminView({ snap, err, ok, busy, run }) {
       </div>
       </>
       ) : null}
+      {modal}
     </section>
   )
 }

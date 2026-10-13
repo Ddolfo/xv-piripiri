@@ -1,39 +1,55 @@
 # XV de PiriPiri · Painel Técnico
 
-App local em React para o técnico do **XV de PiriPiri** (EA FC 26 / Pro Clubs).
+Painel em React para o **XV de PiriPiri** e o **Barcarena FC** no Pro Clubs do EA FC 27.
+
+No ar: https://ddolfo.github.io/xv-piripiri/
 
 ## O que tem
 
-- Cadastro de elenco: nome, PSN, posição primária, secundária e posições extras
-- Persistência no `localStorage` do navegador
-- Campo com formações (4231, 433, 352, 541, etc.)
-- Drag-and-drop do elenco para as vagas
-- Trocar a formação zera a escalação
-- Hover no jogador no campo mostra **×** para remover
-- Botão para zerar a escalação
-- Aba de estatísticas consultando a API pública de Pro Clubs da EA
+- **Estatísticas**: divisão (com escudo por divisão), campanha, aproveitamento, saldo e habilidade;
+  sequência dos últimos 10 resultados; lista das últimas partidas com o cartão da partida escolhida
+  e acesso à súmula; números do elenco e ficha de cada jogador.
+- **Rivais**: histórico acumulado de confrontos, com o "pato", o "algoz" e a lista de adversários.
+- **Draft XV**: campeonato interno com sorteio de elencos, mercado, leilões, propostas, escalação
+  e tabela. Em produção ainda aparece o cartaz de "em construção"; em `npm run dev` o app abre.
 
 ## Como rodar
 
 ```bash
-cd xv-piripiri
 npm install
 npm run dev
 ```
 
-Abra `http://localhost:5173`.
+Abra `http://localhost:5173`. Em dev o Vite faz proxy de `/ea` para `https://proclubs.ea.com`
+e serve a API do Draft em `/draft`, gravando em `data/draft-state.json` (fora do git).
+A senha do admin do Draft (`ddolfo.draft`) fica em `data/.draft-secret`.
 
-## API da EA
+Testes do motor do Draft: `npm run test:draft`.
 
-A Community API oficial do FC 26 (conta Ultimate Team) só é liberada para FUTBIN, FUT.GG e FUTWIZ.
+## Dados da EA
 
-Este app usa a API pública de **Pro Clubs**:
+O app usa a API pública de Pro Clubs (`/api/fc/...`). No site publicado as chamadas passam pelo
+worker da Cloudflare (`worker.js`), que:
 
-- `GET /api/fc/allTimeLeaderboard/search`
-- `GET /api/fc/members/stats`
-- `GET /api/fc/members/career/stats`
-- `GET /api/fc/clubs/info`
+- tenta de novo quando a EA devolve 403/429 e, se continuar barrado, serve a última resposta boa
+  guardada no cache e no KV;
+- puxa os jogos dos clubes a cada 30 minutos e acumula um histórico único em `/shared/history/:clubId`,
+  para todo visitante ver os mesmos jogos e rivais.
 
-O Vite faz proxy em `/ea` → `https://proclubs.ea.com` para evitar CORS.
+## Publicar
 
-Se a EA bloquear o IP, cadastre o elenco manualmente e cole o Club ID quando tiver.
+GitHub Pages (pasta `../gh-pages`, branch `gh-pages`):
+
+```bash
+MSYS_NO_PATHCONV=1 VITE_BASE=/xv-piripiri/ npm run build
+```
+
+No Git Bash do Windows o `MSYS_NO_PATHCONV=1` é obrigatório; sem ele o caminho base vira
+`C:/Program Files/Git/...` e o site abre em branco. Copie `dist/` para `../gh-pages`, faça commit e push.
+
+Worker (conta Cloudflare "Resisted Lycra", definida em `wrangler.toml`):
+
+```bash
+npm run build
+npx wrangler deploy
+```

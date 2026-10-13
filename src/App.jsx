@@ -1,4 +1,4 @@
-import { Component, useEffect, useState } from 'react'
+import { Component, lazy, Suspense, useEffect, useState } from 'react'
 import Estatisticas from './components/Estatisticas'
 import Header from './components/Header'
 import Rivais from './components/Rivais'
@@ -22,6 +22,9 @@ import {
 import { loadSeedHistory, loadSharedHistory } from './lib/rivals'
 
 const SHARED_POLL_MS = 5 * 60 * 1000
+
+// O Draft só roda em dev por enquanto; em produção segue o cartaz de em construção.
+const DraftApp = import.meta.env.DEV ? lazy(() => import('./draft/ui/DraftApp.jsx')) : null
 
 const VIEW_KEY = 'xv-active-view'
 
@@ -166,7 +169,7 @@ export default function App() {
 
   return (
     <PanelError>
-      <div className={`app-shell${view === 'draft' ? ' is-draft' : ''}`}>
+      <div className={`app-shell${view === 'draft' && !DraftApp ? ' is-draft' : ''}`}>
         <Header
           view={view}
           setView={selectView}
@@ -179,7 +182,13 @@ export default function App() {
           clubName={clubName}
         />
         <main className="main">
-          {view === 'draft' ? (
+          {view === 'draft' && DraftApp ? (
+            <div className="page-wrap">
+              <Suspense fallback={<div className="card">Carregando o Draft XV…</div>}>
+                <DraftApp />
+              </Suspense>
+            </div>
+          ) : view === 'draft' ? (
             <div className="draft-soon">
               <img
                 src={`${import.meta.env.BASE_URL}draft-em-construcao.jpg`}

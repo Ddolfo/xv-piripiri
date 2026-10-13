@@ -91,3 +91,55 @@ export function overallTone(ovr) {
   if (ovr >= 74) return 'ovr-silver'
   return 'ovr-bronze'
 }
+
+const LEDGER_LABEL = {
+  saldo_inicial: 'Saldo inicial',
+  compra_direta: 'Compra no mercado',
+  venda_mercado: 'Venda ao mercado',
+  leilao_vencedor: 'Leilão vencido',
+  negociacao: 'Negociação paga',
+  negociacao_recebida: 'Negociação recebida',
+}
+
+const STATUS_LABEL = {
+  aberto: 'Aberto',
+  ativo: 'Ativo',
+  ativa: 'Ativa',
+  pendente: 'Pendente',
+  aceita: 'Aceita',
+  recusada: 'Recusada',
+  cancelada: 'Cancelada',
+  cancelada_admin: 'Cancelada pelo admin',
+  cancelado: 'Cancelado',
+  concluido: 'Concluído',
+  contestada: 'Contestada',
+  contraproposta: 'Contraproposta',
+  corrigido_admin: 'Corrigido pelo admin',
+  cumprida: 'Cumprida',
+  encerrado: 'Encerrado',
+  expirada: 'Expirada',
+  invalidada: 'Invalidada',
+  validado: 'Validado',
+  aguardando_confirmacao: 'Aguardando confirmação',
+}
+
+const FORMAT_LABEL = {
+  'pontos-corridos': 'Pontos corridos',
+  'mata-mata': 'Mata-mata',
+}
+
+// Troca códigos internos (saldo_inicial, pontos-corridos…) por texto legível.
+function humanize(code) {
+  const s = String(code || '').replace(/[_-]+/g, ' ').trim()
+  return s ? s[0].toUpperCase() + s.slice(1) : '—'
+}
+
+export const ledgerLabel = (code) => LEDGER_LABEL[code] || humanize(code)
+export const statusLabel = (code) => STATUS_LABEL[code] || humanize(code)
+export const formatLabel = (code) => FORMAT_LABEL[code] || humanize(code)
+
+export function initialsOf(name) {
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean)
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+  return String(name || '?').slice(0, 2).toUpperCase()
+}
