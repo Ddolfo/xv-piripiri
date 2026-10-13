@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { coins, draftApi, formatLabel, statusLabel } from './api.js'
+import { draftApi, formatLabel, statusLabel } from './api.js'
 import CrestMark from './CrestMark.jsx'
+import { Coins } from './Coin.jsx'
 import FormModal from './FormModal.jsx'
 import MatchSheet from './MatchSheet.jsx'
 import { LeadersBoard, StandingsTable } from './MatchViews.jsx'
@@ -466,7 +467,7 @@ function Participants({ snap, run, setModal, busy }) {
                     </td>
                     <td>{club?.preferredFormation || '—'}</td>
                     <td>{club ? `${club.rosterCount}/${club.maxRoster}` : '—'}</td>
-                    <td>{club ? coins(club.spendable ?? club.balance) : '—'}</td>
+                    <td>{club ? <Coins value={club.spendable ?? club.balance} /> : '—'}</td>
                     <td>
                       <span className={`admin-pill ${u.status === 'ativo' ? 'ok' : 'danger'}`}>{statusLabel(u.status)}</span>
                     </td>
@@ -583,8 +584,8 @@ function Market({ snap, run, busy, setModal }) {
         <div>
           <h3>Premiação por partida</h3>
           <p className="muted">
-            Vitória <b className="ok-text">{coins(snap.settings?.rewardWin ?? 2500)}</b> · Empate{' '}
-            <b>{coins(snap.settings?.rewardDraw ?? 1000)}</b> · Derrota não paga. Cai na carteira do clube assim que a partida é jogada.
+            Vitória <b className="ok-text"><Coins value={snap.settings?.rewardWin ?? 2500} /></b> · Empate{' '}
+            <b><Coins value={snap.settings?.rewardDraw ?? 1000} /></b> · Derrota não paga. Cai na carteira do clube assim que a partida é jogada.
           </p>
         </div>
         <button
@@ -624,9 +625,9 @@ function Market({ snap, run, busy, setModal }) {
               {(snap.prices || []).map((r) => (
                 <tr key={r.overall}>
                   <td>{r.overall}</td>
-                  <td>{coins(r.buy)}</td>
-                  <td>{coins(r.auction)}</td>
-                  <td>{coins(r.sell)}</td>
+                  <td><Coins value={r.buy} /></td>
+                  <td><Coins value={r.auction} /></td>
+                  <td><Coins value={r.sell} /></td>
                 </tr>
               ))}
             </tbody>

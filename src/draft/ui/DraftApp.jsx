@@ -3,6 +3,7 @@ import { validateCrest } from '../lib/crest.js'
 import { coins, draftApi, getDraftToken, ledgerLabel, overallTone, setDraftToken, statusLabel } from './api.js'
 import CrestEditor, { startingCrest } from './CrestEditor.jsx'
 import CrestMark from './CrestMark.jsx'
+import { Coins, WalletCard } from './Coin.jsx'
 import AdminPanel from './AdminPanel.jsx'
 import { PlayerCard } from './parts.jsx'
 import FormModal from './FormModal.jsx'
@@ -237,9 +238,7 @@ export default function DraftApp() {
         <div className="hero-side">
           <NotificationBell notifications={snap.notifications} onOpen={openNotification} onReadAll={readAll} />
         <div className="wallet-box">
-          <span>Carteira</span>
-          <b>{coins(club.spendable)}</b>
-          {club.reserved ? <small className="muted">Reservado em lances: {coins(club.reserved)}</small> : null}
+          <WalletCard spendable={club.spendable} reserved={club.reserved} />
           <button
             className="link-btn draft-logout"
             onClick={logout}
@@ -382,7 +381,7 @@ function ClubView({ club, marketOpen, run, setModal }) {
                       setModal(
                         <Modal title="Vender ao mercado" onClose={() => setModal(null)}>
                           <p>
-                            {p.name} ({p.overall}) rende {coins(p.sell)}.
+                            {p.name} ({p.overall}) rende <Coins value={p.sell} />.
                           </p>
                           <div className="actions">
                             <button className="btn" onClick={() => run(() => draftApi.sell(p.id), 'Venda concluída.')}>
@@ -420,9 +419,8 @@ function ClubView({ club, marketOpen, run, setModal }) {
                   <tr key={l.id}>
                     <td>{new Date(l.at).toLocaleString('pt-BR')}</td>
                     <td>{ledgerLabel(l.reason)}</td>
-                    <td className={l.amount < 0 ? 'money-out' : 'money-in'}>
-                      {l.amount > 0 ? '+' : ''}
-                      {coins(l.amount)}
+                    <td>
+                      <Coins value={l.amount} signed />
                     </td>
                   </tr>
                 ))}
@@ -562,7 +560,7 @@ function MarketView({ snap, run, setModal, area: areaProp, setArea: setAreaProp 
                           setModal(
                             <Modal title="Compra direta" onClose={() => setModal(null)}>
                               <p>
-                                Contratar {p.name} por {coins(p.buy)}? Saldo atual: {coins(snap.club.spendable)}.
+                                Contratar {p.name} por <Coins value={p.buy} />? Saldo atual: <Coins value={snap.club.spendable} />.
                               </p>
                               <div className="actions">
                                 <button className="btn" onClick={() => run(() => draftApi.buy(p.id), 'Jogador contratado.')}>
@@ -603,7 +601,7 @@ function MarketView({ snap, run, setModal, area: areaProp, setArea: setAreaProp 
                       {p.name} <span className={`ovr ${overallTone(p.overall)}`}>{p.overall}</span>
                     </h4>
                     <small className="muted">
-                      Lance atual {coins(last?.amount || 0)}
+                      Lance atual <Coins value={last?.amount || 0} />
                       {last?.clubId ? ` · ${clubName(last.clubId)}` : ''}
                     </small>
                   </div>
@@ -691,12 +689,12 @@ function MarketView({ snap, run, setModal, area: areaProp, setArea: setAreaProp 
                     </span>
                     {t.pay ? (
                       <span>
-                        Você paga <b>{coins(t.pay)}</b>
+                        Você paga <b><Coins value={t.pay} /></b>
                       </span>
                     ) : null}
                     {t.receive ? (
                       <span>
-                        Você recebe <b>{coins(t.receive)}</b>
+                        Você recebe <b><Coins value={t.receive} /></b>
                       </span>
                     ) : null}
                     {!t.pay && !t.receive ? <span className="muted">Troca direta, sem dinheiro</span> : null}

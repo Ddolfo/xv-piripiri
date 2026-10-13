@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { coins, overallTone } from './api.js'
+import { overallTone } from './api.js'
 import CrestMark from './CrestMark.jsx'
+import { Coins } from './Coin.jsx'
 import PlayerFace from './PlayerFace.jsx'
 
 export function PlayerCard({ player, actions }) {
@@ -18,10 +19,10 @@ export function PlayerCard({ player, actions }) {
         {player.buy != null && (
           <div className="fut-price">
             <span>
-              Compra <b>{Number(player.buy).toLocaleString('pt-BR')}</b>
+              Compra <Coins value={player.buy} size={13} />
             </span>
             <span>
-              Venda <b>{Number(player.sell).toLocaleString('pt-BR')}</b>
+              Venda <Coins value={player.sell} size={13} />
             </span>
           </div>
         )}
@@ -131,7 +132,7 @@ export function AdminTeams({ snap }) {
                 <small className="muted">
                   {' '}
                   {c.participantName} · {c.preferredFormation} · {c.rosterCount}/{c.maxRoster} jogadores ·{' '}
-                  {coins(c.spendable ?? c.balance)}
+                  <Coins value={c.spendable ?? c.balance} />
                 </small>
               </span>
             </summary>

@@ -23,8 +23,8 @@ import { loadSeedHistory, loadSharedHistory } from './lib/rivals'
 
 const SHARED_POLL_MS = 5 * 60 * 1000
 
-// O Draft só roda em dev por enquanto; em produção segue o cartaz de em construção.
-const DraftApp = import.meta.env.DEV ? lazy(() => import('./draft/ui/DraftApp.jsx')) : null
+// Draft XV carregado sob demanda: só baixa o código quando a pessoa abre a aba.
+const DraftApp = lazy(() => import('./draft/ui/DraftApp.jsx'))
 
 const VIEW_KEY = 'xv-active-view'
 

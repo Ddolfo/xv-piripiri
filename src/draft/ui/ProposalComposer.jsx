@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { coins, overallTone } from './api.js'
+import { overallTone } from './api.js'
 import CrestMark from './CrestMark.jsx'
+import { Coins } from './Coin.jsx'
 import PlayerFace from './PlayerFace.jsx'
 
 function PlayerPick({ players, selected, onToggle, lockedIds }) {
@@ -18,7 +19,7 @@ function PlayerPick({ players, selected, onToggle, lockedIds }) {
               <span className="deal-player-text">
                 <b>{p.name}</b>
                 <small>
-                  {p.position} · valor {coins(p.buy ?? 0)}
+                  {p.position} · valor <Coins value={p.buy ?? 0} />
                   {locked ? ' · em outra negociação' : ''}
                 </small>
               </span>
@@ -107,7 +108,7 @@ export default function ProposalComposer({ title, myClub, otherClub, initial, lo
               <input type="number" inputMode="numeric" min="0" step="100" value={amount} onChange={(e) => setAmount(e.target.value)} autoFocus />
             </label>
           ) : null}
-          <small className="muted">Seu saldo disponível: {coins(myClub.spendable ?? myClub.balance ?? 0)}</small>
+          <small className="muted">Seu saldo disponível: <Coins value={myClub.spendable ?? myClub.balance ?? 0} /></small>
         </div>
 
         <div className="deal-summary">
@@ -119,11 +120,11 @@ export default function ProposalComposer({ title, myClub, otherClub, initial, lo
           </span>
           {money !== 'none' && value ? (
             <span>
-              {money === 'pay' ? 'Você paga' : 'Você recebe'} <b>{coins(value)}</b>
+              {money === 'pay' ? 'Você paga' : 'Você recebe'} <b><Coins value={value} /></b>
             </span>
           ) : null}
           <small className="muted">
-            Valor de tabela: leva {coins(takeValue)} · dá {coins(giveValue)} · elencos ficam {finalMine} e {finalTheirs}
+            Valor de tabela: leva <Coins value={takeValue} /> · dá <Coins value={giveValue} /> · elencos ficam {finalMine} e {finalTheirs}
           </small>
         </div>
 

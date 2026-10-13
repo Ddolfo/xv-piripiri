@@ -71,7 +71,7 @@ export default function Header({
 
         <div className="top-meta">
           {view === 'draft' ? (
-            <span>{import.meta.env.DEV ? 'Draft XV' : 'Em construção'}</span>
+            <span>Draft XV</span>
           ) : booting ? (
             <span>Carregando {clubName || def.name}…</span>
           ) : (
