@@ -9,7 +9,8 @@ const CORS = {
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { 'content-type': 'application/json; charset=utf-8', ...CORS },
+    // Respostas dependem de quem está logado: nunca guardar em cache.
+    headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...CORS },
   })
 }
 

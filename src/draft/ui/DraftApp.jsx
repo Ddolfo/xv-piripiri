@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { validateCrest } from '../lib/crest.js'
-import { coins, draftApi, formatLabel, ledgerLabel, overallTone, setDraftToken, statusLabel } from './api.js'
+import { coins, draftApi, formatLabel, getDraftToken, ledgerLabel, overallTone, setDraftToken, statusLabel } from './api.js'
 import CrestEditor, { startingCrest } from './CrestEditor.jsx'
 import CrestMark from './CrestMark.jsx'
 import FormModal from './FormModal.jsx'
@@ -110,27 +110,60 @@ function Timer({ endsAt }) {
   )
 }
 
+const BLANK_LOGIN = { username: '', password: '' }
+const blankOnboard = () => ({ step: 1, name: '', formation: '', crest: null })
+
 export default function DraftApp() {
   const [snap, setSnap] = useState(null)
   const [tab, setTab] = useState('clube')
   const [err, setErr] = useState('')
   const [ok, setOk] = useState('')
   const [busy, setBusy] = useState(false)
-  const [login, setLogin] = useState({ username: '', password: '' })
-  const [onboard, setOnboard] = useState({ step: 1, name: '', formation: '', crest: null })
+  const [login, setLogin] = useState(BLANK_LOGIN)
+  const [onboard, setOnboard] = useState(blankOnboard)
   const [modal, setModal] = useState(null)
+  const shownUser = useRef(null)
+
+  // Tudo o que pertence a uma conta some quando a conta muda: formulário de login,
+  // cadastro do clube em andamento, aba aberta e janelas.
+  function resetAccountState() {
+    setLogin(BLANK_LOGIN)
+    setOnboard(blankOnboard())
+    setTab('clube')
+    setModal(null)
+  }
 
   async function refresh() {
+    const token = getDraftToken()
     try {
       const data = await draftApi.snapshot()
+      // Resposta de um pedido feito com outra conta (antes de sair ou trocar): descarta.
+      if (getDraftToken() !== token) return
+      const userId = data?.me?.id || null
+      if (shownUser.current !== userId) {
+        if (shownUser.current !== null) resetAccountState()
+        shownUser.current = userId
+      }
       setSnap(data)
       setErr('')
     } catch (e) {
+      if (getDraftToken() !== token) return
       if (String(e.message).includes('Sessão')) {
         setDraftToken('')
+        shownUser.current = null
+        resetAccountState()
         setSnap({ me: null })
       } else setErr(e.message)
     }
+  }
+
+  async function logout() {
+    await run(async () => {
+      // Sai mesmo que a sessão já tenha expirado no servidor.
+      await draftApi.logout().catch(() => {})
+      setDraftToken('')
+      resetAccountState()
+    })
   }
 
   useEffect(() => {
@@ -164,35 +197,50 @@ export default function DraftApp() {
           <h2>Draft XV</h2>
           <p className="muted">Campeonato interno do XV de PiriPiri. Entre com a conta criada pelo administrador.</p>
           {err ? <div className="alert">{err}</div> : null}
-          <div className="field">
-            <label>Identificador</label>
-            <input value={login.username} onChange={(e) => setLogin({ ...login, username: e.target.value })} />
-          </div>
-          <div className="field">
-            <label>Senha</label>
-            <input type="password" value={login.password} onChange={(e) => setLogin({ ...login, password: e.target.value })} />
-          </div>
-          <div className="actions">
-            <button
-              className="btn"
-              disabled={busy}
-              onClick={() =>
-                run(async () => {
-                  const res = await draftApi.login(login.username, login.password)
-                  setDraftToken(res.token)
-                }, 'Sessão iniciada.')
-              }
-            >
-              Entrar
-            </button>
-          </div>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              run(async () => {
+                const res = await draftApi.login(login.username.trim(), login.password)
+                resetAccountState()
+                setDraftToken(res.token)
+              }, 'Sessão iniciada.')
+            }}
+          >
+            <div className="field">
+              <label htmlFor="draft-user">Identificador</label>
+              <input
+                id="draft-user"
+                autoComplete="username"
+                autoCapitalize="none"
+                spellCheck={false}
+                value={login.username}
+                onChange={(e) => setLogin({ ...login, username: e.target.value })}
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="draft-pass">Senha</label>
+              <input
+                id="draft-pass"
+                type="password"
+                autoComplete="current-password"
+                value={login.password}
+                onChange={(e) => setLogin({ ...login, password: e.target.value })}
+              />
+            </div>
+            <div className="actions">
+              <button type="submit" className="btn" disabled={busy || !login.username.trim() || !login.password}>
+                Entrar
+              </button>
+            </div>
+          </form>
         </div>
       </section>
     )
   }
 
   if (snap.me?.role === 'admin') {
-    return <AdminView snap={snap} err={err} ok={ok} busy={busy} run={run} refresh={refresh} setErr={setErr} />
+    return <AdminView key={snap.me.id} snap={snap} err={err} ok={ok} busy={busy} run={run} onLogout={logout} />
   }
 
   if (snap.me && !snap.club?.setupComplete) {
@@ -203,12 +251,7 @@ export default function DraftApp() {
         err={err}
         busy={busy}
         run={run}
-        onLogout={() =>
-          run(async () => {
-            await draftApi.logout()
-            setDraftToken('')
-          })
-        }
+        onLogout={logout}
       />
     )
   }
@@ -228,7 +271,7 @@ export default function DraftApp() {
   const currentTab = tab === 'mercado' && !drawDone ? 'clube' : tab
 
   return (
-    <section className="draft-xv">
+    <section className="draft-xv" key={snap.me.id}>
       <div className="draft-hero">
         <div className="club-cell">
           <CrestMark crest={club.crest} size={72} />
@@ -246,12 +289,7 @@ export default function DraftApp() {
           {club.reserved ? <small className="muted">Reservado em lances: {coins(club.reserved)}</small> : null}
           <button
             className="link-btn draft-logout"
-            onClick={() =>
-              run(async () => {
-              await draftApi.logout()
-              setDraftToken('')
-            })
-            }
+            onClick={logout}
           >
             Sair
           </button>
@@ -984,7 +1022,7 @@ function AdminTeams({ snap }) {
   )
 }
 
-function AdminView({ snap, err, ok, busy, run }) {
+function AdminView({ snap, err, ok, busy, run, onLogout }) {
   const [adminTab, setAdminTab] = useState('painel')
   const [modal, setModal] = useState(null)
   const [user, setUser] = useState({ username: '', password: '', displayName: '' })
@@ -1009,12 +1047,7 @@ function AdminView({ snap, err, ok, busy, run }) {
         </div>
         <button
           className="link-btn draft-logout"
-          onClick={() =>
-            run(async () => {
-              await draftApi.logout()
-              setDraftToken('')
-            })
-          }
+          onClick={onLogout}
         >
           Sair
         </button>
