@@ -475,6 +475,8 @@ export class DraftEngine {
 
   async ensureBootstrap(state) {
     if (!state.meta.createdAt) state.meta.createdAt = this.now()
+    // Configurações novas entram com o valor padrão sem apagar o que o admin já ajustou.
+    state.settings = { ...DEFAULT_SETTINGS, ...(state.settings || {}) }
     if (!Object.keys(state.players).length || state.meta.playerBankVersion !== PLAYER_BANK_VERSION) {
       state.players = {}
       for (const p of buildPlayerBank()) state.players[p.id] = p
