@@ -22,6 +22,7 @@ import {
   STARTERS_COUNT,
   STARTING_COINS,
   STARTING_ROSTER,
+  YELLOW_CARD_LIMIT,
   STRATEGY_PRESETS,
 } from './lib/constants.js'
 import { hashPassword, randomToken, sha256B64, verifyPassword } from './lib/crypto.js'
@@ -31,7 +32,7 @@ import { cleanCrest, validateCrest } from './lib/crest.js'
 import { drawFormationRoster } from './lib/draw.js'
 import { PLAYER_BANK_VERSION, buildPlayerBank } from './lib/seed-players.js'
 import { simulateMatch } from './lib/sim.js'
-import { computeStandings, knockoutBracket, roundRobinFixtures } from './lib/standings.js'
+import { computeLeaders, computeStandings, knockoutBracket, roundRobinFixtures } from './lib/standings.js'
 import {
   DraftError,
   activeAuctionForPlayer,
@@ -768,6 +769,7 @@ export class DraftEngine {
         'startersCount',
         'benchCount',
         'maxSubs',
+        'yellowCardLimit',
         'suspensionScope',
       ]
       for (const key of allowed) {
@@ -1274,6 +1276,9 @@ export class DraftEngine {
       if (fixture.homeClubId !== club.id && fixture.awayClubId !== club.id) {
         throw new DraftError('Seu clube não está neste confronto.')
       }
+      if (fixture.homeClubId !== club.id) throw new DraftError('Só o mandante convida para a partida.')
+      const notReady = this._lineupProblem(state, club, fixture.championshipId)
+      if (notReady) throw new DraftError(notReady)
       const dup = Object.values(state.challenges).find(
         (c) => c.fixtureId === fixtureId && ['pendente', 'aceito', 'aguardando_inicio'].includes(c.status),
       )
@@ -1295,7 +1300,7 @@ export class DraftEngine {
         createdAt: state._now,
       }
       state.challenges[challenge.id] = challenge
-      notifyClub(state, targetId, 'desafio', 'Novo desafio', `${club.name} desafiou seu clube.`, { challengeId: challenge.id })
+      notifyClub(state, targetId, 'desafio', 'Convite para partida', `${club.name} convidou seu clube para jogar. Aceite para a partida acontecer.`, { challengeId: challenge.id })
       return challenge
     })
   }
@@ -1306,18 +1311,15 @@ export class DraftEngine {
       const club = clubOf(state, actor)
       const ch = state.challenges[challengeId]
       if (!ch || ch.toClubId !== club.id) throw new DraftError('Desafio inválido.')
-      if (ch.status !== 'pendente') throw new DraftError('Este desafio já foi respondido.')
-      ch.status = accept ? 'aceito' : 'recusado'
+      if (ch.status !== 'pendente') throw new DraftError('Este convite já foi respondido.')
       ch.respondedAt = state._now
-      notifyClub(
-        state,
-        ch.fromClubId,
-        accept ? 'desafio_aceito' : 'desafio_recusado',
-        accept ? 'Desafio aceito' : 'Desafio recusado',
-        accept ? 'Confirme o início da partida.' : 'O adversário recusou o desafio.',
-        { challengeId: ch.id },
-      )
-      return ch
+      if (!accept) {
+        ch.status = 'recusado'
+        notifyClub(state, ch.fromClubId, 'desafio_recusado', 'Convite recusado', `${club.name} recusou o convite.`, { challengeId: ch.id })
+        return ch
+      }
+      const match = this._playChallenge(state, ch)
+      return { ...ch, match }
     })
   }
 
@@ -1327,13 +1329,33 @@ export class DraftEngine {
       const club = clubOf(state, actor)
       const ch = state.challenges[challengeId]
       if (!ch || ch.fromClubId !== club.id) throw new DraftError('Só o desafiante confirma o início.')
-      if (ch.status !== 'aceito') throw new DraftError('O desafio ainda não foi aceito.')
-      const fixture = state.fixtures[ch.fixtureId]
-      const match = this._simulateOfficial(state, fixture, ch)
-      ch.status = 'concluido'
-      ch.matchId = match.id
-      return match
+      if (ch.status !== 'aceito') throw new DraftError('O convite ainda não foi aceito.')
+      return this._playChallenge(state, ch)
     })
+  }
+
+  // Convites aceitos antes desta mudança ainda podem ser jogados pelo mandante.
+  _playChallenge(state, ch) {
+    const fixture = state.fixtures[ch.fixtureId]
+    if (!fixture) throw new DraftError('Confronto não encontrado.', 404)
+    const match = this._simulateOfficial(state, fixture, ch)
+    this._validateMatch(state, match)
+    ch.status = 'concluido'
+    ch.matchId = match.id
+    return match
+  }
+
+  _lineupProblem(state, club, championshipId) {
+    const pack = this._lineupPlayers(state, club.id, championshipId)
+    if (pack.starters.length !== STARTERS_COUNT) {
+      return `${club.name} precisa salvar a escalação com 11 titulares antes da partida.`
+    }
+    const suspended = new Set(activeSuspensions(state, club.id).map((s) => s.playerId))
+    const out = pack.starters.filter((p) => suspended.has(p.id)).map((p) => p.name)
+    if (out.length) {
+      return `${club.name} escalou jogador suspenso (${out.join(', ')}). Troque na Formação e Escalação.`
+    }
+    return null
   }
 
   _lineupPlayers(state, clubId, championshipId) {
@@ -1364,18 +1386,8 @@ export class DraftEngine {
     if (otherLive) throw new DraftError('Há partida simultânea. Definição administrativa necessária.', 409)
     const homePack = this._lineupPlayers(state, home.id, fixture.championshipId)
     const awayPack = this._lineupPlayers(state, away.id, fixture.championshipId)
-    const missing = [
-      homePack.starters.length !== STARTERS_COUNT ? home.name : null,
-      awayPack.starters.length !== STARTERS_COUNT ? away.name : null,
-    ].filter(Boolean)
-    if (missing.length) {
-      throw new DraftError(`Falta salvar a escalação com 11 titulares: ${missing.join(' e ')}.`)
-    }
-    const homeSus = activeSuspensions(state, home.id).map((s) => s.playerId)
-    const awaySus = activeSuspensions(state, away.id).map((s) => s.playerId)
-    if (homePack.starters.some((p) => homeSus.includes(p.id)) || awayPack.starters.some((p) => awaySus.includes(p.id))) {
-      throw new DraftError('Há jogador suspenso na escalação.')
-    }
+    const problem = this._lineupProblem(state, home, fixture.championshipId) || this._lineupProblem(state, away, fixture.championshipId)
+    if (problem) throw new DraftError(problem)
     const cup = state.championships[fixture.championshipId]
     const matchId = nid('mt')
     const result = simulateMatch({
@@ -1436,20 +1448,6 @@ export class DraftEngine {
     fixture.status = 'aguardando_confirmacao'
     consumeSuspensions(state, home.id, match.id)
     consumeSuspensions(state, away.id, match.id)
-    for (const red of result.reds || []) {
-      const susId = nid('sus')
-      state.suspensions[susId] = {
-        id: susId,
-        playerId: red.playerId,
-        clubId: red.clubId,
-        sourceMatchId: match.id,
-        status: 'ativa',
-        createdAt: state._now,
-      }
-      notifyClub(state, red.clubId, 'suspensao', 'Jogador suspenso', `${red.playerName} está suspenso na próxima partida oficial.`)
-    }
-    notifyClub(state, home.id, 'resultado', 'Resultado para confirmar', `${home.name} ${homeGoals} x ${awayGoals} ${away.name}`)
-    notifyClub(state, away.id, 'resultado', 'Resultado para confirmar', `${home.name} ${homeGoals} x ${awayGoals} ${away.name}`)
     return match
   }
 
@@ -1479,8 +1477,56 @@ export class DraftEngine {
     if (fixture) fixture.status = 'concluido'
     const cup = state.championships[match.championshipId]
     if (cup?.format === 'mata-mata') this._advanceKnockout(state, cup, match)
-    notifyClub(state, match.homeClubId, 'resultado_confirmado', 'Resultado validado', 'A partida foi confirmada pelos dois clubes.')
-    notifyClub(state, match.awayClubId, 'resultado_confirmado', 'Resultado validado', 'A partida foi confirmada pelos dois clubes.')
+    this._applyCardRules(state, match)
+    const home = state.clubs[match.homeClubId]
+    const away = state.clubs[match.awayClubId]
+    const line = `${home?.name || 'Mandante'} ${match.homeGoals} x ${match.awayGoals} ${away?.name || 'Visitante'}`
+    notifyClub(state, match.homeClubId, 'resultado', 'Partida jogada', `${line}. O resultado já está na tabela.`, { matchId: match.id })
+    notifyClub(state, match.awayClubId, 'resultado', 'Partida jogada', `${line}. O resultado já está na tabela.`, { matchId: match.id })
+  }
+
+  /**
+   * Regras de cartões:
+   * - vermelho direto ou dois amarelos no jogo: suspensão na próxima partida oficial;
+   * - a cada N amarelos acumulados no mesmo campeonato (padrão 3): suspensão na próxima partida.
+   * Os amarelos de uma expulsão por dois amarelos não contam para o acúmulo.
+   */
+  _applyCardRules(state, match) {
+    if (match.cardRulesApplied) return
+    match.cardRulesApplied = true
+    const result = match.result || {}
+    const suspend = (playerId, clubId, playerName, reason, text) => {
+      const id = nid('sus')
+      state.suspensions[id] = { id, playerId, clubId, sourceMatchId: match.id, reason, status: 'ativa', createdAt: state._now }
+      notifyClub(state, clubId, 'suspensao', 'Jogador suspenso', text || `${playerName} cumpre suspensão na próxima partida oficial.`)
+    }
+    const sentOff = new Set()
+    for (const red of result.reds || []) {
+      sentOff.add(red.playerId)
+      const why = red.reason === 'segundo_amarelo' ? 'dois amarelos' : 'vermelho direto'
+      suspend(red.playerId, red.clubId, red.playerName, red.reason === 'segundo_amarelo' ? 'dois_amarelos' : 'vermelho', `${red.playerName} foi expulso (${why}) e cumpre suspensão na próxima partida oficial.`)
+    }
+    const limit = Number(state.settings.yellowCardLimit) || YELLOW_CARD_LIMIT
+    const here = new Map()
+    for (const y of result.yellows || []) {
+      if (sentOff.has(y.playerId)) continue
+      here.set(y.playerId, y)
+    }
+    if (!here.size) return
+    const done = Object.values(state.matches).filter(
+      (m) => m.championshipId === match.championshipId && m.status === 'validado' && m.kind === 'oficial',
+    )
+    for (const [playerId, y] of here) {
+      let total = 0
+      for (const m of done) {
+        const expelled = (m.result?.reds || []).some((r) => r.playerId === playerId)
+        if (expelled) continue
+        total += (m.result?.yellows || []).filter((x) => x.playerId === playerId).length
+      }
+      if (total > 0 && total % limit === 0) {
+        suspend(playerId, y.clubId, y.playerName, 'acumulo_amarelos', `${y.playerName} chegou a ${total} amarelos no campeonato e cumpre suspensão na próxima partida oficial.`)
+      }
+    }
   }
 
   _advanceKnockout(state, cup, match) {
@@ -1737,6 +1783,7 @@ export class DraftEngine {
       ...cup,
       fixtures: Object.values(state.fixtures).filter((f) => f.championshipId === cup.id),
       standings: cup.format === 'pontos-corridos' ? computeStandings(cup, Object.values(state.matches), state.clubs, state.settings) : [],
+      leaders: computeLeaders(cup, Object.values(state.matches), state.players, state.clubs),
     }))
   }
 }

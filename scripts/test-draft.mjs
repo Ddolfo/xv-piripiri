@@ -210,84 +210,6 @@ test('dois campeonatos compartilham elenco e saldo', async () => {
   assert.ok(after.club.balance < before.club.balance)
 })
 
-test('simulação gera relatório, exige confirmação dupla e cartão vermelho suspende', async () => {
-  const { engine, admin, users } = await setupWorld()
-  const ids = []
-  const snaps = []
-  for (const u of users) {
-    const s = await engine.snapshot(u)
-    snaps.push(s)
-    ids.push(s.club.id)
-  }
-  const cup = await engine.createChampionship(admin, { name: 'Liga', format: 'pontos-corridos' })
-  await engine.assignClubs(admin, cup.id, ids)
-  await engine.generateCalendar(admin, cup.id)
-  for (const u of users) {
-    const s = await engine.snapshot(u)
-    const roster = s.club.roster
-    await engine.saveLineup(u, {
-      championshipId: cup.id,
-      formation: '4-3-3',
-      starters: roster.slice(0, 11).map((p) => p.id),
-      bench: roster.slice(11, 18).map((p) => p.id),
-      strategyPreset: 'equilibrada',
-    })
-  }
-  const full = await engine.snapshot(admin)
-  const fixture = full.championships
-    .find((c) => c.id === cup.id)
-    .fixtures.find((f) => f.homeClubId === ids[0] && f.awayClubId === ids[1])
-  const homeUser = await userByClub(engine, users, fixture.homeClubId)
-  const awayUser = await userByClub(engine, users, fixture.awayClubId)
-  void snaps
-  const ch = await engine.challenge(homeUser, fixture.id)
-  await engine.respondChallenge(awayUser, ch.id, true)
-  const match = await engine.confirmChallengeStart(homeUser, ch.id)
-  assert.ok(match.result.stats)
-  assert.equal(match.result.events[0].type, 'inicio')
-  assert.equal(match.status, 'aguardando_confirmacao')
-  await engine.confirmMatch(homeUser, match.id)
-  let mid = (await engine.snapshot(homeUser)).matches.find((m) => m.id === match.id)
-  assert.equal(mid.status, 'aguardando_confirmacao')
-  await engine.confirmMatch(awayUser, match.id)
-  mid = (await engine.snapshot(homeUser)).matches.find((m) => m.id === match.id)
-  assert.equal(mid.status, 'validado')
-  const table = (await engine.snapshot(admin)).championships.find((c) => c.id === cup.id).standings
-  assert.equal(table.reduce((a, r) => a + r.played, 0), 2)
-})
-
-test('contestação vai ao admin e partida contestada não conta', async () => {
-  const { engine, admin, users } = await setupWorld()
-  const ids = []
-  for (const u of users) ids.push((await engine.snapshot(u)).club.id)
-  const cup = await engine.createChampionship(admin, { name: 'Liga', format: 'pontos-corridos' })
-  await engine.assignClubs(admin, cup.id, ids)
-  await engine.generateCalendar(admin, cup.id)
-  for (const u of users) {
-    const s = await engine.snapshot(u)
-    await engine.saveLineup(u, {
-      championshipId: cup.id,
-      formation: '4-3-3',
-      starters: s.club.roster.slice(0, 11).map((p) => p.id),
-      bench: s.club.roster.slice(11, 16).map((p) => p.id),
-      strategyPreset: 'ofensiva',
-    })
-  }
-  const full = await engine.snapshot(admin)
-  const fixture = full.championships[0].fixtures.find((f) => !f.bye)
-  const home = await userByClub(engine, users, fixture.homeClubId)
-  const away = await userByClub(engine, users, fixture.awayClubId)
-  const ch = await engine.challenge(home, fixture.id)
-  await engine.respondChallenge(away, ch.id, true)
-  const match = await engine.confirmChallengeStart(home, ch.id)
-  await engine.contestMatch(away, match.id, 'Placar divergente')
-  const standing = (await engine.snapshot(admin)).championships[0].standings
-  assert.equal(standing.reduce((a, r) => a + r.played, 0), 0)
-  await engine.resolveMatch(admin, match.id, { keepOriginal: true, justification: 'Mantido o registro da simulação.' })
-  const standing2 = (await engine.snapshot(admin)).championships[0].standings
-  assert.equal(standing2.reduce((a, r) => a + r.played, 0), 2)
-})
-
 test('concorrência: só uma compra do mesmo jogador passa', async () => {
   const { engine, users } = await setupWorld()
   const snap = await engine.snapshot(users[0])
@@ -493,48 +415,140 @@ test('escudo do ateliê é validado, limpo e salvo', async () => {
   assert.equal(club.primary, '#111111')
 })
 
-test('escalação salva em um campeonato vale para o desafio de outro', async () => {
-  const { engine, admin, users } = await setupWorld()
+async function cupWithLineups(engine, admin, users, { name = 'Liga', lineupCup = null } = {}) {
   const ids = []
   for (const u of users) ids.push((await engine.snapshot(u)).club.id)
-  const first = await engine.createChampionship(admin, { name: 'Copa A', format: 'pontos-corridos', clubIds: ids })
-  const second = await engine.createChampionship(admin, { name: 'Copa B', format: 'pontos-corridos', clubIds: ids })
-  await engine.generateCalendar(admin, second.id)
+  const cup = await engine.createChampionship(admin, { name, format: 'pontos-corridos', clubIds: ids })
+  await engine.generateCalendar(admin, cup.id)
   for (const u of users) {
     const roster = (await engine.snapshot(u)).club.roster
     await engine.saveLineup(u, {
-      championshipId: first.id,
+      championshipId: lineupCup || 'geral',
       formation: '4-3-3',
       starters: roster.slice(0, 11).map((p) => p.id),
       bench: roster.slice(11, 18).map((p) => p.id),
-      strategyPreset: 'equilibrada',
+      strategyPreset: 'ofensiva',
     })
   }
-  const fixture = (await engine.snapshot(admin)).championships.find((c) => c.id === second.id).fixtures[0]
-  const homeUser = await userByClub(engine, users, fixture.homeClubId)
-  const awayUser = await userByClub(engine, users, fixture.awayClubId)
-  const ch = await engine.challenge(homeUser, fixture.id)
-  await engine.respondChallenge(awayUser, ch.id, true)
-  const match = await engine.confirmChallengeStart(homeUser, ch.id)
-  assert.equal(match.status, 'aguardando_confirmacao')
+  const fixture = (await engine.snapshot(admin)).championships.find((c) => c.id === cup.id).fixtures.find((f) => !f.bye)
+  const home = await userByClub(engine, users, fixture.homeClubId)
+  const away = await userByClub(engine, users, fixture.awayClubId)
+  return { cup, fixture, home, away, ids }
+}
+
+test('mandante convida, aceite do visitante joga e o resultado entra direto na tabela', async () => {
+  const { engine, admin, users } = await setupWorld()
+  const { cup, fixture, home, away } = await cupWithLineups(engine, admin, users)
+  await assert.rejects(() => engine.challenge(away, fixture.id), /mandante/)
+  const ch = await engine.challenge(home, fixture.id)
+  const res = await engine.respondChallenge(away, ch.id, true)
+  assert.equal(res.match.status, 'validado')
+  assert.ok(res.match.result.stats)
+  const snap = await engine.snapshot(admin)
+  const table = snap.championships.find((c) => c.id === cup.id).standings
+  assert.equal(table.reduce((a, r) => a + r.played, 0), 2)
+  const homeRow = table.find((r) => r.clubId === fixture.homeClubId)
+  assert.equal(homeRow.fouls, res.match.result.stats.home.fouls)
+  assert.equal(homeRow.yellows, res.match.result.stats.home.yellows)
 })
 
-test('sem escalação o desafio diz qual clube falta e campeonato repetido é recusado', async () => {
+test('convite recusado não joga e escalação de outro campeonato vale', async () => {
+  const { engine, admin, users } = await setupWorld()
+  const other = await engine.createChampionship(admin, { name: 'Copa Antiga', format: 'pontos-corridos' })
+  const { cup, fixture, home, away } = await cupWithLineups(engine, admin, users, { name: 'Liga Nova', lineupCup: other.id })
+  const ch = await engine.challenge(home, fixture.id)
+  await engine.respondChallenge(away, ch.id, false)
+  let table = (await engine.snapshot(admin)).championships.find((c) => c.id === cup.id).standings
+  assert.equal(table.reduce((a, r) => a + r.played, 0), 0)
+  const again = await engine.challenge(home, fixture.id)
+  const res = await engine.respondChallenge(away, again.id, true)
+  assert.equal(res.match.status, 'validado')
+})
+
+test('sem escalação o convite diz qual clube falta e campeonato repetido é recusado', async () => {
   const { engine, admin, users } = await setupWorld()
   const ids = []
   for (const u of users) ids.push((await engine.snapshot(u)).club.id)
   const cup = await engine.createChampionship(admin, { name: 'Liga Draft XV', format: 'pontos-corridos', clubIds: ids })
   await assert.rejects(
     () => engine.createChampionship(admin, { name: ' liga draft xv ', format: 'pontos-corridos', clubIds: ids }),
-    /mesmo nome|esse nome/,
+    /esse nome/,
   )
   await engine.generateCalendar(admin, cup.id)
   const fixture = (await engine.snapshot(admin)).championships.find((c) => c.id === cup.id).fixtures[0]
-  const homeUser = await userByClub(engine, users, fixture.homeClubId)
-  const awayUser = await userByClub(engine, users, fixture.awayClubId)
-  const ch = await engine.challenge(homeUser, fixture.id)
-  await engine.respondChallenge(awayUser, ch.id, true)
-  await assert.rejects(() => engine.confirmChallengeStart(homeUser, ch.id), /Falta salvar a escalação/)
+  const home = await userByClub(engine, users, fixture.homeClubId)
+  const away = await userByClub(engine, users, fixture.awayClubId)
+  await assert.rejects(() => engine.challenge(home, fixture.id), /precisa salvar a escalação/)
+  const roster = (await engine.snapshot(home)).club.roster
+  await engine.saveLineup(home, { formation: '4-3-3', starters: roster.slice(0, 11).map((p) => p.id), bench: [], strategyPreset: 'equilibrada' })
+  const ch = await engine.challenge(home, fixture.id)
+  const awayClub = (await engine.snapshot(away)).club
+  await assert.rejects(() => engine.respondChallenge(away, ch.id, true), new RegExp(`${awayClub.name}.*escalação`))
+})
+
+test('tabela traz gols, assistências, faltas e cartões por jogador', async () => {
+  const { engine, admin, users } = await setupWorld()
+  const { cup, fixture, home, away } = await cupWithLineups(engine, admin, users)
+  const ch = await engine.challenge(home, fixture.id)
+  const { match } = await engine.respondChallenge(away, ch.id, true)
+  const leaders = (await engine.snapshot(admin)).championships.find((c) => c.id === cup.id).leaders
+  const sum = (k) => leaders.reduce((a, r) => a + r[k], 0)
+  const st = match.result.stats
+  assert.equal(sum('goals'), match.homeGoals + match.awayGoals)
+  assert.equal(sum('fouls'), st.home.fouls + st.away.fouls)
+  assert.equal(sum('yellows'), st.home.yellows + st.away.yellows)
+  assert.equal(sum('reds'), st.home.reds + st.away.reds)
+  assert.ok(sum('assists') <= sum('goals'))
+})
+
+test('simulador: segundo amarelo sempre expulsa e expulso não volta a aparecer', async () => {
+  const { simulateMatch } = await import('../src/draft/lib/sim.js')
+  const mk = (club, n) => Array.from({ length: 11 }, (_, i) => ({ id: `${club}-${i}`, name: `${club} ${i}`, overall: 75, position: i === 0 ? 'GK' : 'CB', clubId: club }))
+  for (let k = 0; k < 400; k++) {
+    const r = simulateMatch({
+      matchId: `teste-${k}`,
+      home: { id: 'h', name: 'Casa' },
+      away: { id: 'a', name: 'Fora' },
+      homeLineup: mk('h'),
+      awayLineup: mk('a'),
+      homePlan: { first: 'ofensiva', second: 'ofensiva', subs: [] },
+      awayPlan: { first: 'ofensiva', second: 'ofensiva', subs: [] },
+    })
+    const byPlayer = {}
+    for (const y of r.yellows) byPlayer[y.playerId] = (byPlayer[y.playerId] || 0) + 1
+    for (const [pid, n] of Object.entries(byPlayer)) {
+      if (n >= 2) assert.ok(r.reds.some((x) => x.playerId === pid && x.reason === 'segundo_amarelo'), 'dois amarelos sem expulsão')
+      assert.ok(n <= 2, 'mais de dois amarelos')
+    }
+    for (const red of r.reds) {
+      const after = r.fouls.filter((f) => f.playerId === red.playerId && f.minute > red.minute)
+      assert.equal(after.length, 0, 'expulso cometeu falta depois de sair')
+    }
+  }
+})
+
+test('regras de cartões: vermelho suspende e 3 amarelos no campeonato suspendem', async () => {
+  const { engine, admin, users } = await setupWorld()
+  const { cup, fixture } = await cupWithLineups(engine, admin, users)
+  const homeClub = fixture.homeClubId
+  await engine.tx(async (state) => {
+    const p = Object.values(state.players).find((x) => x.clubId === homeClub)
+    const q = Object.values(state.players).find((x) => x.clubId === homeClub && x.id !== p.id)
+    const fake = (i, yellows, reds = []) => {
+      const m = { id: `mt-fake-${i}`, kind: 'oficial', championshipId: cup.id, homeClubId: homeClub, awayClubId: fixture.awayClubId, homeGoals: 0, awayGoals: 0, status: 'validado', result: { yellows, reds, events: [], fouls: [] } }
+      state.matches[m.id] = m
+      engine._applyCardRules(state, m)
+    }
+    const y = (pl) => ({ playerId: pl.id, playerName: pl.name, clubId: homeClub })
+    fake(1, [y(p)])
+    fake(2, [y(p)])
+    assert.equal(Object.values(state.suspensions).filter((s) => s.playerId === p.id).length, 0)
+    fake(3, [y(p)])
+    assert.equal(Object.values(state.suspensions).filter((s) => s.playerId === p.id && s.reason === 'acumulo_amarelos').length, 1)
+    fake(4, [y(q), y(q)], [{ playerId: q.id, playerName: q.name, clubId: homeClub, reason: 'segundo_amarelo' }])
+    assert.equal(Object.values(state.suspensions).filter((s) => s.playerId === q.id && s.reason === 'dois_amarelos').length, 1)
+    return null
+  })
 })
 
 let failed = 0

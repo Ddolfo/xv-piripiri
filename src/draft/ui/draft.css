@@ -764,3 +764,82 @@
 }
 .draft-xv > .alert { background: rgba(70, 18, 16, 0.92); }
 .draft-xv > .okbox { background: rgba(12, 52, 26, 0.92); }
+
+/* ---------- Partidas, convites e tabela ---------- */
+
+.cups,
+.tables { display: flex; flex-direction: column; gap: 16px; }
+.cups > .card,
+.tables > .card { margin-top: 0 !important; }
+.cup-block + .cup-block { margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--hairline); }
+
+.invite-box { box-shadow: inset 0 0 0 1px rgba(255, 214, 10, 0.35); }
+.invite {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+}
+.invite + .invite { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--hairline); }
+.invite .actions { margin-top: 0 !important; }
+.suspended-box { box-shadow: inset 3px 0 0 var(--danger); }
+
+.match-reports { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+.match-report { padding: 16px; border-radius: 16px; background: var(--surface-2); }
+.match-report-score {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.match-report-score .away { justify-content: flex-end; text-align: right; }
+.match-report-score b { font-size: 24px; font-weight: 600; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.match-report-score i { color: var(--muted); font-style: normal; font-weight: 300; }
+.match-report-events { margin: 14px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.match-report-events li { display: grid; grid-template-columns: 34px 18px 1fr; align-items: center; gap: 6px; font-size: 13px; }
+.match-report-events li.away { color: var(--muted-2); }
+.match-report-events .minute { color: var(--muted); font-variant-numeric: tabular-nums; }
+.ev { display: inline-block; font-size: 12px; text-align: center; }
+.ev-amarelo,
+.ev-vermelho { width: 9px; height: 13px; border-radius: 2px; margin-left: 4px; }
+.ev-amarelo { background: var(--gold); }
+.ev-vermelho { background: var(--danger); }
+.match-report-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--hairline);
+  color: var(--muted);
+  font-size: 12px;
+}
+.match-report-stats b { color: var(--ink); font-weight: 500; }
+
+.card-chip { display: inline-block; width: 9px; height: 13px; border-radius: 2px; vertical-align: -2px; }
+.card-chip + .card-chip { margin-left: 3px; }
+.card-chip.yellow { background: var(--gold); }
+.card-chip.red { background: var(--danger); }
+.card-rules { padding: 18px 22px; border-radius: var(--radius-lg); background: var(--surface); }
+.card-rules summary { cursor: pointer; font-size: 15px; font-weight: 600; }
+.card-rules ul { margin: 14px 0 0; padding: 0; list-style: none; display: grid; gap: 10px; color: var(--muted-2); font-size: 14px; }
+.card-rules li { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+
+.standings th,
+.standings td { text-align: center; }
+.standings th:nth-child(2),
+.standings td:nth-child(2) { text-align: left; }
+.draft-table tr.mine td { background: rgba(255, 214, 10, 0.06); }
+.leaders-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; }
+.leaders td:last-child,
+.leaders th:last-child { text-align: right; }
+@media (max-width: 720px) {
+  .match-reports { grid-template-columns: 1fr; }
+  .leaders-head .segmented { overflow-x: auto; max-width: 100%; }
+}
+/* Coluna de ações em tabela: mantém a célula como célula (sem quebrar a linha divisória). */
+td.row-actions { display: table-cell; text-align: right; white-space: nowrap; }
+td.row-actions > * + * { margin-left: 6px; }

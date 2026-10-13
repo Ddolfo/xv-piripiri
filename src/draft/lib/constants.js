@@ -21,6 +21,8 @@ export const PBKDF2_ITERATIONS = 100_000
 export const MAX_SUBS = 5
 export const STARTERS_COUNT = 11
 export const BENCH_COUNT = 7
+/** Amarelos acumulados no mesmo campeonato que geram suspensão. */
+export const YELLOW_CARD_LIMIT = 3
 
 export const CLUB_NAME_MIN = 3
 export const CLUB_NAME_MAX = 32
@@ -75,6 +77,7 @@ export const DEFAULT_SETTINGS = {
   startersCount: STARTERS_COUNT,
   benchCount: BENCH_COUNT,
   maxSubs: MAX_SUBS,
+  yellowCardLimit: YELLOW_CARD_LIMIT,
   suspensionScope: 'next_official_any_championship',
   pointsWin: 3,
   pointsDraw: 1,

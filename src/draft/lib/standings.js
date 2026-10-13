@@ -11,6 +11,9 @@ function emptyRow(club) {
     ga: 0,
     gd: 0,
     points: 0,
+    fouls: 0,
+    yellows: 0,
+    reds: 0,
   }
 }
 
@@ -43,6 +46,15 @@ export function computeStandings(championship, matches, clubs, settings) {
     home.ga += match.awayGoals
     away.gf += match.awayGoals
     away.ga += match.homeGoals
+    const st = match.result?.stats
+    if (st) {
+      home.fouls += st.home?.fouls || 0
+      home.yellows += st.home?.yellows || 0
+      home.reds += st.home?.reds || 0
+      away.fouls += st.away?.fouls || 0
+      away.yellows += st.away?.yellows || 0
+      away.reds += st.away?.reds || 0
+    }
     const hk = key(match.homeClubId, match.awayClubId)
     if (!h2h[hk]) h2h[hk] = { [match.homeClubId]: 0, [match.awayClubId]: 0 }
     if (match.homeGoals > match.awayGoals) {
@@ -143,4 +155,54 @@ export function knockoutBracket(clubIds, rand) {
     }
   }
   return { size, byes, fixtures }
+}
+
+/**
+ * Números por jogador nas partidas validadas do campeonato:
+ * gols, assistências, faltas, amarelos e vermelhos.
+ */
+export function computeLeaders(championship, matches, players, clubs) {
+  const rows = {}
+  const row = (playerId, clubId) => {
+    if (!playerId) return null
+    if (!rows[playerId]) {
+      const p = players[playerId]
+      rows[playerId] = {
+        playerId,
+        name: p?.name || 'Jogador',
+        position: p?.position || '',
+        clubId,
+        clubName: clubs[clubId]?.name || '',
+        goals: 0,
+        assists: 0,
+        fouls: 0,
+        yellows: 0,
+        reds: 0,
+      }
+    }
+    return rows[playerId]
+  }
+  const done = matches.filter((m) => m.championshipId === championship.id && m.status === 'validado' && m.kind === 'oficial')
+  for (const match of done) {
+    const r = match.result || {}
+    for (const e of r.events || []) {
+      if (e.type === 'gol') {
+        const scorer = row(e.playerId, e.clubId)
+        if (scorer) scorer.goals += 1
+        const helper = row(e.assistId, e.clubId)
+        if (helper) helper.assists += 1
+      } else if (e.type === 'amarelo') {
+        const p = row(e.playerId, e.clubId)
+        if (p) p.yellows += 1
+      } else if (e.type === 'vermelho') {
+        const p = row(e.playerId, e.clubId)
+        if (p) p.reds += 1
+      }
+    }
+    for (const f of r.fouls || []) {
+      const p = row(f.playerId, f.clubId)
+      if (p) p.fouls += 1
+    }
+  }
+  return Object.values(rows)
 }

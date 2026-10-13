@@ -166,42 +166,51 @@ export function simulateMatch({
   const awayFouls = 6 + Math.floor(rand() * 8)
   const yellows = []
   const reds = []
+  const fouls = []
+  const sentOff = new Set()
 
-  const cardChance = (strategy) => 0.018 * (STRATEGY_MOD[strategy] || STRATEGY_MOD.equilibrada).cards
+  // ~3 amarelos por jogo com ~19 faltas, como no futebol de verdade.
+  const cardChance = (strategy) => 0.15 * (STRATEGY_MOD[strategy] || STRATEGY_MOD.equilibrada).cards
 
-  const maybeCards = (club, lineup, strategy, fouls) => {
-    for (let i = 0; i < fouls; i++) {
-      if (rand() < 0.12) {
-        push(uniqueMinute(), 'falta', { clubId: club.id, text: `Falta de ${club.name}` })
+  // Quem comete a falta: defensores e volantes mais, goleiro quase nunca.
+  const FOUL_WEIGHT = { GK: 0.3, CB: 3, LB: 2.6, RB: 2.6, LWB: 2.4, RWB: 2.4, CDM: 3, CM: 2, CAM: 1.3, LM: 1.5, RM: 1.5 }
+  const pickFouler = (players) => {
+    const weights = players.map((p) => FOUL_WEIGHT[p.position] ?? 1)
+    let r = rand() * weights.reduce((x, y) => x + y, 0)
+    for (let i = 0; i < players.length; i++) {
+      r -= weights[i]
+      if (r < 0) return players[i]
+    }
+    return players[players.length - 1]
+  }
+
+  // Faltas em ordem de tempo; o cartão vai para quem fez a falta e o expulso sai do jogo.
+  const maybeCards = (club, lineup, strategy, foulCount) => {
+    const foulMinutes = Array.from({ length: foulCount }, () => uniqueMinute()).sort((x, y) => x - y)
+    for (const minute of foulMinutes) {
+      const onPitch = lineup.filter((p) => !sentOff.has(p.id))
+      if (!onPitch.length) break
+      const p = pickFouler(onPitch)
+      fouls.push({ clubId: club.id, playerId: p.id, playerName: p.name, minute })
+      const card = rand() < cardChance(strategy)
+      if (!card) {
+        if (rand() < 0.12) push(minute, 'falta', { clubId: club.id, playerId: p.id, playerName: p.name, text: `Falta de ${p.name}` })
+        continue
       }
-      if (rand() < cardChance(strategy)) {
-        const p = pick(rand, lineup)
-        const existing = yellows.filter((y) => y.playerId === p.id).length
-        if (existing >= 1 && rand() < 0.35) {
-          reds.push({ clubId: club.id, playerId: p.id, playerName: p.name, reason: 'segundo_amarelo' })
-          push(uniqueMinute(), 'vermelho', {
-            clubId: club.id,
-            playerId: p.id,
-            playerName: p.name,
-            text: `Vermelho para ${p.name}`,
-          })
-        } else if (rand() < 0.08) {
-          reds.push({ clubId: club.id, playerId: p.id, playerName: p.name, reason: 'direto' })
-          push(uniqueMinute(), 'vermelho', {
-            clubId: club.id,
-            playerId: p.id,
-            playerName: p.name,
-            text: `Vermelho direto para ${p.name}`,
-          })
-        } else {
-          yellows.push({ clubId: club.id, playerId: p.id, playerName: p.name })
-          push(uniqueMinute(), 'amarelo', {
-            clubId: club.id,
-            playerId: p.id,
-            playerName: p.name,
-            text: `Amarelo para ${p.name}`,
-          })
-        }
+      const already = yellows.filter((y) => y.playerId === p.id).length
+      if (already >= 1) {
+        yellows.push({ clubId: club.id, playerId: p.id, playerName: p.name, minute, second: true })
+        push(minute, 'amarelo', { clubId: club.id, playerId: p.id, playerName: p.name, second: true, text: `Segundo amarelo para ${p.name}` })
+        reds.push({ clubId: club.id, playerId: p.id, playerName: p.name, reason: 'segundo_amarelo', minute })
+        push(minute, 'vermelho', { clubId: club.id, playerId: p.id, playerName: p.name, reason: 'segundo_amarelo', text: `${p.name} expulso por dois amarelos` })
+        sentOff.add(p.id)
+      } else if (rand() < 0.03) {
+        reds.push({ clubId: club.id, playerId: p.id, playerName: p.name, reason: 'direto', minute })
+        push(minute, 'vermelho', { clubId: club.id, playerId: p.id, playerName: p.name, reason: 'direto', text: `Vermelho direto para ${p.name}` })
+        sentOff.add(p.id)
+      } else {
+        yellows.push({ clubId: club.id, playerId: p.id, playerName: p.name, minute })
+        push(minute, 'amarelo', { clubId: club.id, playerId: p.id, playerName: p.name, text: `Amarelo para ${p.name}` })
       }
     }
   }
@@ -288,6 +297,7 @@ export function simulateMatch({
     scorers: { home: homeScorers, away: awayScorers },
     yellows,
     reds,
+    fouls,
     motm,
     penalties,
     strategies: { home: { first: homeFirst, second: homeSecond }, away: { first: awayFirst, second: awaySecond } },

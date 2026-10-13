@@ -10,7 +10,9 @@ Regras que o prompt mestre deixou abertas, com o padrão inicial seguro:
 - Elenco mínimo para escalar: **11** jogadores.
 - Elenco máximo: **26**.
 - Titulares 11, banco até 7, até 5 substituições.
-- Cartão vermelho: suspende na **próxima partida oficial** do clube, na ordem cronológica entre os campeonatos.
+- Partidas: só o **mandante** convida; quando o visitante **aceita**, a partida é simulada na hora e o resultado entra direto na tabela (sem confirmação de início nem de resultado). Os dois clubes precisam ter escalação salva com 11 titulares, sem suspensos.
+- Cartões: vermelho direto ou dois amarelos no jogo suspendem na **próxima partida oficial**; a cada **3 amarelos** no mesmo campeonato (ajustável em `yellowCardLimit`) o jogador também cumpre suspensão. Os dois amarelos de uma expulsão não contam para o acúmulo. O cartão vai para quem cometeu a falta e o expulso sai do jogo.
+- Tabela: pontos corridos com faltas, amarelos e vermelhos por clube, e rankings de artilharia, assistências, faltas, amarelos e vermelhos por jogador.
 - Partidas simultâneas do mesmo clube: bloqueadas; o admin resolve ambiguidade.
 - Senha do admin `ddolfo.draft`: variável `DRAFT_ADMIN_PASSWORD`. No `npm run dev`, se faltar, uma senha é gravada em `data/.draft-secret` (fora do git).
 - Banco inicial de jogadores: gerado no servidor com overs nas faixas do sorteio. Importação FUT-DB fica para quando houver `FUTDB_TOKEN` no worker.
