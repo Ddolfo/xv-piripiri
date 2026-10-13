@@ -1186,6 +1186,10 @@ export class DraftEngine {
       if (active.length >= MAX_ACTIVE_CHAMPIONSHIPS) {
         throw new DraftError('Já existem dois campeonatos ativos.')
       }
+      const wanted = String(payload.name || '').trim().toLowerCase()
+      if (wanted && active.some((c) => String(c.name || '').trim().toLowerCase() === wanted)) {
+        throw new DraftError('Já existe um campeonato ativo com esse nome.')
+      }
       const format = payload.format === 'mata-mata' ? 'mata-mata' : 'pontos-corridos'
       const id = nid('cmp')
       const clubIds = [...new Set(payload.clubIds || [])]
@@ -1333,7 +1337,13 @@ export class DraftEngine {
   }
 
   _lineupPlayers(state, clubId, championshipId) {
-    const lineup = state.lineups[`${clubId}:${championshipId}`] || state.lineups[`${clubId}:geral`] || defaultLineup()
+    // Ordem: escalação do campeonato, a geral, a última salva pelo clube em qualquer campeonato.
+    const latest = Object.entries(state.lineups)
+      .filter(([key]) => key.startsWith(`${clubId}:`))
+      .map(([, l]) => l)
+      .sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0))[0]
+    const lineup =
+      state.lineups[`${clubId}:${championshipId}`] || state.lineups[`${clubId}:geral`] || latest || defaultLineup()
     const starters = lineup.starters.map((id) => state.players[id]).filter(Boolean)
     const bench = lineup.bench.map((id) => state.players[id]).filter(Boolean)
     return { lineup, starters, bench }
@@ -1354,8 +1364,12 @@ export class DraftEngine {
     if (otherLive) throw new DraftError('Há partida simultânea. Definição administrativa necessária.', 409)
     const homePack = this._lineupPlayers(state, home.id, fixture.championshipId)
     const awayPack = this._lineupPlayers(state, away.id, fixture.championshipId)
-    if (homePack.starters.length !== STARTERS_COUNT || awayPack.starters.length !== STARTERS_COUNT) {
-      throw new DraftError('Ambos os clubes precisam de uma escalação válida de 11 titulares.')
+    const missing = [
+      homePack.starters.length !== STARTERS_COUNT ? home.name : null,
+      awayPack.starters.length !== STARTERS_COUNT ? away.name : null,
+    ].filter(Boolean)
+    if (missing.length) {
+      throw new DraftError(`Falta salvar a escalação com 11 titulares: ${missing.join(' e ')}.`)
     }
     const homeSus = activeSuspensions(state, home.id).map((s) => s.playerId)
     const awaySus = activeSuspensions(state, away.id).map((s) => s.playerId)

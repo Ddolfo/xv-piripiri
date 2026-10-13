@@ -19,8 +19,13 @@ function withoutId(list, id) {
 export default function LineupView({ snap, run }) {
   const club = snap.club
   const roster = club.roster || []
-  const cupId = snap.championships?.[0]?.id || 'geral'
-  const saved = snap.lineups?.[`${club.id}:${cupId}`] || snap.lineups?.[`${club.id}:geral`]
+  const cupId = 'geral'
+  const saved =
+    snap.lineups?.[`${club.id}:geral`] ||
+    Object.entries(snap.lineups || {})
+      .filter(([key]) => key.startsWith(`${club.id}:`))
+      .map(([, l]) => l)
+      .sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0))[0]
   const [formation, setFormation] = useState(saved?.formation || club.preferredFormation || '4-3-3')
   const slots = FORMATIONS[formation] || FORMATIONS['4-3-3']
   const [starters, setStarters] = useState(() => pad(saved?.starters, slots.length))

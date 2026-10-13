@@ -493,6 +493,50 @@ test('escudo do ateliê é validado, limpo e salvo', async () => {
   assert.equal(club.primary, '#111111')
 })
 
+test('escalação salva em um campeonato vale para o desafio de outro', async () => {
+  const { engine, admin, users } = await setupWorld()
+  const ids = []
+  for (const u of users) ids.push((await engine.snapshot(u)).club.id)
+  const first = await engine.createChampionship(admin, { name: 'Copa A', format: 'pontos-corridos', clubIds: ids })
+  const second = await engine.createChampionship(admin, { name: 'Copa B', format: 'pontos-corridos', clubIds: ids })
+  await engine.generateCalendar(admin, second.id)
+  for (const u of users) {
+    const roster = (await engine.snapshot(u)).club.roster
+    await engine.saveLineup(u, {
+      championshipId: first.id,
+      formation: '4-3-3',
+      starters: roster.slice(0, 11).map((p) => p.id),
+      bench: roster.slice(11, 18).map((p) => p.id),
+      strategyPreset: 'equilibrada',
+    })
+  }
+  const fixture = (await engine.snapshot(admin)).championships.find((c) => c.id === second.id).fixtures[0]
+  const homeUser = await userByClub(engine, users, fixture.homeClubId)
+  const awayUser = await userByClub(engine, users, fixture.awayClubId)
+  const ch = await engine.challenge(homeUser, fixture.id)
+  await engine.respondChallenge(awayUser, ch.id, true)
+  const match = await engine.confirmChallengeStart(homeUser, ch.id)
+  assert.equal(match.status, 'aguardando_confirmacao')
+})
+
+test('sem escalação o desafio diz qual clube falta e campeonato repetido é recusado', async () => {
+  const { engine, admin, users } = await setupWorld()
+  const ids = []
+  for (const u of users) ids.push((await engine.snapshot(u)).club.id)
+  const cup = await engine.createChampionship(admin, { name: 'Liga Draft XV', format: 'pontos-corridos', clubIds: ids })
+  await assert.rejects(
+    () => engine.createChampionship(admin, { name: ' liga draft xv ', format: 'pontos-corridos', clubIds: ids }),
+    /mesmo nome|esse nome/,
+  )
+  await engine.generateCalendar(admin, cup.id)
+  const fixture = (await engine.snapshot(admin)).championships.find((c) => c.id === cup.id).fixtures[0]
+  const homeUser = await userByClub(engine, users, fixture.homeClubId)
+  const awayUser = await userByClub(engine, users, fixture.awayClubId)
+  const ch = await engine.challenge(homeUser, fixture.id)
+  await engine.respondChallenge(awayUser, ch.id, true)
+  await assert.rejects(() => engine.confirmChallengeStart(homeUser, ch.id), /Falta salvar a escalação/)
+})
+
 let failed = 0
 for (const item of tests) {
   try {

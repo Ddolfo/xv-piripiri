@@ -751,3 +751,16 @@
 @media (prefers-reduced-motion: reduce) {
   .studio-tile, .studio-switch, .studio-switch i { transition: none; }
 }
+
+/* Avisos do Draft acompanham a rolagem, logo abaixo da barra do site. */
+.draft-xv > .alert,
+.draft-xv > .okbox {
+  position: sticky;
+  top: 64px;
+  z-index: 25;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+.draft-xv > .alert { background: rgba(70, 18, 16, 0.92); }
+.draft-xv > .okbox { background: rgba(12, 52, 26, 0.92); }
