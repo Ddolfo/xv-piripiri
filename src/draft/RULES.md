@@ -17,5 +17,5 @@ Regras que o prompt mestre deixou abertas, com o padrão inicial seguro:
 - Persistência: arquivo `data/draft-state.json` no Vite; Durable Object `DraftRoom` no Cloudflare Worker em produção (`/draft`).
 - Mercado da Bola começa **fechado**. Só o admin abre, e só **depois do sorteio oficial**. Antes do sorteio a aba Mercado não aparece para o participante.
 - Admin pode **excluir campeonato em andamento** (remove confrontos, desafios e partidas) e **excluir participante** (conta, clube, sessões; elenco volta ao mercado), ambos com justificativa auditada.
-- Cadastro do clube: Nome → **Formação preferida** → Cores → Emblema → Concluir. A formação é obrigatória e vale qualquer uma das 12 do campinho.
+- Cadastro do clube: Nome → **Formação preferida** → **Escudo** → Concluir. A formação é obrigatória e vale qualquer uma das 12 do campinho. As cores do clube são escolhidas dentro do escudo (principal, detalhe e destaque).
 - Sorteio: mantém as faixas de over (1 de 89–91, 2 de 85–87, 4 de 83, 10 de 74–79, 5 de 65–73) e garante pelo menos **um jogador para cada uma das 11 posições** da formação preferida. Quem cobre as posições conta na cota da sua faixa; o restante sai aleatório, de qualquer posição. Sem a posição exata no banco, vale uma parecida (LWB→LB/LM, RWB→RB/RM, CF→ST/CAM, LW↔LM, RW↔RM, CDM/CAM→CM). Clube antigo sem formação usa 4-3-3.
