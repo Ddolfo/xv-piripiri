@@ -1394,3 +1394,11 @@ td .admin-pill { justify-self: auto; }
 }
 .wallet-reserved { display: block; line-height: 1.5; }
 .wallet-reserved .coins { margin-right: 2px; }
+/* Banco com 5 reservas. */
+.draft-bench { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+@media (max-width: 860px) {
+  .draft-bench { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+}
+@media (max-width: 720px) {
+  .draft-pitch { min-height: 580px; }
+}

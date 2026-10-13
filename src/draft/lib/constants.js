@@ -20,7 +20,7 @@ export const PBKDF2_ITERATIONS = 100_000
 
 export const MAX_SUBS = 5
 export const STARTERS_COUNT = 11
-export const BENCH_COUNT = 7
+export const BENCH_COUNT = 5
 /**
  * Prêmio por partida oficial, em XV-Coins. Vitória paga um jogador de 77–79 (2.500)
  * e empate um de 70–76 (1.000): numa temporada de 10 jogos o campeão junta perto

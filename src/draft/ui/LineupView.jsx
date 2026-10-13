@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { FORMATIONS } from '../../data/formations.js'
-import { STRATEGY_PRESETS } from '../lib/constants.js'
+import { autoLineup } from '../lib/autolineup.js'
+import { BENCH_COUNT, STRATEGY_PRESETS } from '../lib/constants.js'
 import { draftApi, overallTone } from './api.js'
 import PlayerFace from './PlayerFace.jsx'
 
@@ -18,6 +19,7 @@ function withoutId(list, id) {
 
 export default function LineupView({ snap, run }) {
   const club = snap.club
+  const benchSize = snap.settings?.benchCount || BENCH_COUNT
   const roster = club.roster || []
   const cupId = 'geral'
   const saved =
@@ -29,7 +31,7 @@ export default function LineupView({ snap, run }) {
   const [formation, setFormation] = useState(saved?.formation || club.preferredFormation || '4-3-3')
   const slots = FORMATIONS[formation] || FORMATIONS['4-3-3']
   const [starters, setStarters] = useState(() => pad(saved?.starters, slots.length))
-  const [bench, setBench] = useState(() => pad(saved?.bench, 7))
+  const [bench, setBench] = useState(() => pad(saved?.bench, benchSize))
   const [preset, setPreset] = useState(saved?.strategyPreset || 'equilibrada')
   const [pick, setPick] = useState(null)
   const [over, setOver] = useState(null)
@@ -44,6 +46,32 @@ export default function LineupView({ snap, run }) {
       if (!term) return true
       return p.name.toLowerCase().includes(term) || String(p.position).toLowerCase().includes(term) || String(p.overall) === term
     })
+
+  function save(f, s, b, message) {
+    return run(
+      () =>
+        draftApi.saveLineup({
+          championshipId: cupId,
+          formation: f,
+          starters: s.filter(Boolean).slice(0, 11),
+          bench: b.filter(Boolean).slice(0, benchSize),
+          strategyPreset: preset,
+          captainId: s.find(Boolean),
+        }),
+      message,
+    )
+  }
+
+  // Monta a escalação mais forte na formação escolhida e já salva.
+  function autocomplete() {
+    const auto = autoLineup(roster, formation, { suspendedIds: suspended, benchSize })
+    const nextS = pad(auto.starters, slots.length)
+    const nextB = pad(auto.bench, benchSize)
+    setStarters(nextS)
+    setBench(nextB)
+    setPick(null)
+    if (nextS.filter(Boolean).length === 11) save(formation, nextS, nextB, 'Escalação montada com os melhores em cada posição.')
+  }
 
   function playerById(id) {
     return roster.find((p) => p.id === id)
@@ -62,12 +90,12 @@ export default function LineupView({ snap, run }) {
     const fromBench = bench.indexOf(playerId)
     const occupant = starters[index] || null
     let nextS = pad(starters, slots.length)
-    let nextB = pad(bench, 7)
+    let nextB = pad(bench, benchSize)
     nextS[index] = playerId
     if (fromStart >= 0 && fromStart !== index) nextS[fromStart] = occupant
     else if (fromBench >= 0) {
       nextB[fromBench] = occupant
-      nextB = pad(nextB.filter(Boolean), 7)
+      nextB = pad(nextB.filter(Boolean), benchSize)
     }
     setStarters(nextS)
     setBench(nextB)
@@ -80,7 +108,7 @@ export default function LineupView({ snap, run }) {
     const fromBench = bench.indexOf(playerId)
     const occupant = bench[index] || null
     let nextS = pad(starters, slots.length)
-    let nextB = pad(bench, 7)
+    let nextB = pad(bench, benchSize)
     nextB[index] = playerId
     if (fromBench >= 0 && fromBench !== index) nextB[fromBench] = occupant
     else if (fromStart >= 0) {
@@ -93,7 +121,7 @@ export default function LineupView({ snap, run }) {
 
   function removePlayer(playerId) {
     setStarters((s) => withoutId(pad(s, slots.length), playerId))
-    setBench((b) => pad(withoutId(b, playerId).filter(Boolean), 7))
+    setBench((b) => pad(withoutId(b, playerId).filter(Boolean), benchSize))
     if (pick === playerId) setPick(null)
   }
 
@@ -135,7 +163,7 @@ export default function LineupView({ snap, run }) {
       <div className="card lineup-roster">
         <h3>Elenco ({roster.length})</h3>
         <p className="lineup-hint">
-          Clique no jogador e depois na posição, ou arraste até o campinho. O X no nome tira da escalação.
+          Clique no jogador e depois na posição, ou arraste até o campinho. O X tira da escalação. Autocompletar coloca os melhores em cada posição.
         </p>
         <input className="lineup-search" placeholder="Buscar no elenco" value={q} onChange={(e) => setQ(e.target.value)} />
         <div
@@ -199,28 +227,15 @@ export default function LineupView({ snap, run }) {
               </option>
             ))}
           </select>
-          <button
-            className="btn"
-            onClick={() =>
-              run(
-                () =>
-                  draftApi.saveLineup({
-                    championshipId: cupId,
-                    formation,
-                    starters: starters.filter(Boolean).slice(0, 11),
-                    bench: bench.filter(Boolean).slice(0, 7),
-                    strategyPreset: preset,
-                    captainId: starters.find(Boolean),
-                  }),
-                'Escalação salva.',
-              )
-            }
-          >
+          <button className="btn ghost" onClick={autocomplete} title="Coloca os melhores em cada posição da formação e salva">
+            Autocompletar
+          </button>
+          <button className="btn" onClick={() => save(formation, starters, bench, 'Escalação salva.')}>
             Salvar escalação
           </button>
         </div>
         <p className="muted">
-          Titulares {starters.filter(Boolean).length}/11 · Banco {bench.filter(Boolean).length}/7
+          Titulares {starters.filter(Boolean).length}/11 · Banco {bench.filter(Boolean).length}/{benchSize}
           {pick ? ` · selecionado: ${playerById(pick)?.name || ''}` : ''}
         </p>
         <div className="draft-pitch">
@@ -268,7 +283,7 @@ export default function LineupView({ snap, run }) {
         </div>
         <h4 className="bench-title">Banco</h4>
         <div className="draft-bench">
-          {pad(bench, 7).map((id, i) => {
+          {pad(bench, benchSize).map((id, i) => {
             const player = playerById(id)
             return (
               <div

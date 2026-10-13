@@ -30,6 +30,7 @@ import {
 import { hashPassword, randomToken, sha256B64, verifyPassword } from './lib/crypto.js'
 import { auctionStartPrice, buyPrice, priceTableRows, sellPrice } from './lib/prices.js'
 import { FORMATIONS } from '../data/formations.js'
+import { autoLineup } from './lib/autolineup.js'
 import { cleanCrest, validateCrest } from './lib/crest.js'
 import { drawFormationRoster } from './lib/draw.js'
 import { PLAYER_BANK_VERSION, buildPlayerBank } from './lib/seed-players.js'
@@ -178,6 +179,57 @@ function transferPlayer(state, player, toClubId, reason) {
   player.history.push({ at: state._now, from, to: toClubId, reason })
   player.clubId = toClubId
   player.status = toClubId ? PLAYER_STATUS.OWNED : PLAYER_STATUS.FREE
+  // No sorteio as escalações são montadas no fim; nas negociações, cada lado se ajusta na hora.
+  if (reason === 'sorteio') return
+  if (from && from !== toClubId) repairLineups(state, from)
+  if (toClubId && toClubId !== from) repairLineups(state, toClubId)
+}
+
+const PRESET_HALVES = Object.fromEntries(STRATEGY_PRESETS.map((s) => [s.id, s]))
+
+// Monta (ou completa) a escalação do clube com os melhores disponíveis, mantendo o que ainda vale.
+function buildLineup(state, club, base = null) {
+  const roster = rosterOf(state, club.id)
+  const suspendedIds = new Set(activeSuspensions(state, club.id).map((s) => s.playerId))
+  const formation = base?.formation || club.preferredFormation || DEFAULT_FORMATION
+  const auto = autoLineup(roster, formation, {
+    suspendedIds,
+    benchSize: state.settings.benchCount || BENCH_COUNT,
+    keepStarters: base?.starters || [],
+    keepBench: base?.bench || [],
+  })
+  const presetId = base?.strategyPreset || 'equilibrada'
+  const preset = PRESET_HALVES[presetId] || PRESET_HALVES.equilibrada
+  const onField = new Set([...auto.starters, ...auto.bench].filter(Boolean))
+  return {
+    formation: auto.formation,
+    starters: auto.starters,
+    bench: auto.bench,
+    captainId: base?.captainId && onField.has(base.captainId) ? base.captainId : auto.starters.find(Boolean) || null,
+    strategyPreset: presetId,
+    first: base?.first || preset.first,
+    second: base?.second || preset.second,
+    subs: (base?.subs || []).filter((s) => onField.has(s.outId) && onField.has(s.inId)),
+    savedAt: state._now,
+    auto: base ? Boolean(base.auto) : true,
+  }
+}
+
+// Tira quem saiu do clube e completa as vagas sem mexer nas escolhas que continuam válidas.
+function repairLineups(state, clubId) {
+  const club = state.clubs[clubId]
+  if (!club) return
+  const owned = new Set(rosterOf(state, clubId).map((p) => p.id))
+  for (const [key, lineup] of Object.entries(state.lineups)) {
+    if (!key.startsWith(`${clubId}:`)) continue
+    const starters = (lineup.starters || []).map((id) => (id && owned.has(id) ? id : null))
+    const bench = (lineup.bench || []).filter((id) => id && owned.has(id))
+    const changed =
+      starters.some((id, i) => id !== (lineup.starters || [])[i]) ||
+      bench.length !== (lineup.bench || []).length ||
+      starters.filter(Boolean).length < STARTERS_COUNT
+    if (changed) state.lineups[key] = buildLineup(state, club, { ...lineup, starters, bench })
+  }
 }
 
 function officialDrawDone(state) {
@@ -477,6 +529,18 @@ export class DraftEngine {
     if (!state.meta.createdAt) state.meta.createdAt = this.now()
     // Configurações novas entram com o valor padrão sem apagar o que o admin já ajustou.
     state.settings = { ...DEFAULT_SETTINGS, ...(state.settings || {}) }
+    if (state.settings.benchCount === 7) state.settings.benchCount = BENCH_COUNT
+    // Clubes já sorteados sem escalação ganham a automática; bancos acima do limite são ajustados.
+    const benchMax = state.settings.benchCount || BENCH_COUNT
+    for (const club of Object.values(state.clubs || {})) {
+      if (!club.setupComplete || !rosterOf(state, club.id).length) continue
+      const key = `${club.id}:geral`
+      const own = Object.keys(state.lineups || {}).filter((k) => k.startsWith(`${club.id}:`))
+      if (!own.length) state.lineups[key] = buildLineup(state, club)
+      for (const k of own) {
+        if ((state.lineups[k].bench || []).length > benchMax) state.lineups[k] = buildLineup(state, club, state.lineups[k])
+      }
+    }
     if (!Object.keys(state.players).length || state.meta.playerBankVersion !== PLAYER_BANK_VERSION) {
       state.players = {}
       for (const p of buildPlayerBank()) state.players[p.id] = p
@@ -761,8 +825,10 @@ export class DraftEngine {
           taken.push(player.id)
         }
         if (taken.length !== STARTING_ROSTER) throw new DraftError('Sorteio não fechou 22 jogadores.', 500)
+        for (const key of Object.keys(state.lineups)) if (key.startsWith(`${club.id}:`)) delete state.lineups[key]
+        state.lineups[`${club.id}:geral`] = buildLineup(state, club)
         result.push({ clubId: club.id, name: club.name, formation, playerIds: taken, covered: drawn.covered })
-        notifyClub(state, club.id, 'sorteio', 'Elenco sorteado', 'O administrador sorteou os 22 jogadores iniciais do seu clube.')
+        notifyClub(state, club.id, 'sorteio', 'Elenco sorteado', 'O administrador sorteou os 22 jogadores do seu clube. A escalação já está montada com os melhores em cada posição.')
       }
       const draw = { id: nid('drw'), at: state._now, actorId: actor.id, justification: justification || null, result }
       state.draws.push(draw)
@@ -1395,8 +1461,9 @@ export class DraftEngine {
       .sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0))[0]
     const lineup =
       state.lineups[`${clubId}:${championshipId}`] || state.lineups[`${clubId}:geral`] || latest || defaultLineup()
-    const starters = lineup.starters.map((id) => state.players[id]).filter(Boolean)
-    const bench = lineup.bench.map((id) => state.players[id]).filter(Boolean)
+    const mine = (id) => state.players[id] && state.players[id].clubId === clubId
+    const starters = (lineup.starters || []).filter(mine).map((id) => state.players[id])
+    const bench = (lineup.bench || []).filter(mine).map((id) => state.players[id])
     return { lineup, starters, bench }
   }
 

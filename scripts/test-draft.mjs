@@ -351,7 +351,7 @@ test('escalação aceita qualquer formação do campinho', async () => {
   await engine.saveLineup(users[0], {
     formation: '4-1-2-1-2',
     starters: ids.slice(0, 11),
-    bench: ids.slice(11, 18),
+    bench: ids.slice(11, 16),
     strategyPreset: 'equilibrada',
   })
   const after = await engine.snapshot(users[0])
@@ -424,7 +424,7 @@ async function cupWithLineups(engine, admin, users, { name = 'Liga', lineupCup =
       championshipId: lineupCup || 'geral',
       formation: '4-3-3',
       starters: roster.slice(0, 11).map((p) => p.id),
-      bench: roster.slice(11, 18).map((p) => p.id),
+      bench: roster.slice(11, 16).map((p) => p.id),
       strategyPreset: 'ofensiva',
     })
   }
@@ -473,6 +473,11 @@ test('sem escalação o convite diz qual clube falta e campeonato repetido é re
     /esse nome/,
   )
   await engine.generateCalendar(admin, cup.id)
+  // O sorteio já monta as escalações; aqui uma fica com 10 titulares para testar o aviso.
+  await engine.tx(async (state) => {
+    for (const lineup of Object.values(state.lineups)) lineup.starters = lineup.starters.slice(0, 10)
+    return null
+  })
   const fixture = (await engine.snapshot(admin)).championships.find((c) => c.id === cup.id).fixtures[0]
   const home = await userByClub(engine, users, fixture.homeClubId)
   const away = await userByClub(engine, users, fixture.awayClubId)
@@ -649,6 +654,56 @@ test('negociação: contraproposta com jogador de terceiro é recusada e quem of
   await engine.respondProposal(a, prop.id, 'cancelar')
   assert.equal((await engine.snapshot(a)).club.reserved, 0)
   void A
+})
+
+test('sorteio já monta a escalação: melhores por posição, 11 titulares e 5 no banco com goleiro', async () => {
+  const { engine, users } = await setupWorld()
+  for (const u of users) {
+    const snap = await engine.snapshot(u)
+    const lineup = snap.lineups?.[`${snap.club.id}:geral`]
+    assert.ok(lineup, 'sem escalação depois do sorteio')
+    assert.equal(lineup.formation, snap.club.preferredFormation)
+    assert.equal(lineup.starters.filter(Boolean).length, 11)
+    assert.equal(lineup.bench.length, 5)
+    const all = [...lineup.starters, ...lineup.bench]
+    assert.equal(new Set(all).size, all.length, 'jogador repetido')
+    const roster = new Map(snap.club.roster.map((p) => [p.id, p]))
+    const slots = FORMATIONS[lineup.formation]
+    const gkSlot = slots.findIndex((x) => x.code === 'GK')
+    assert.equal(roster.get(lineup.starters[gkSlot]).position, 'GK')
+    // Nenhum reserva é melhor que um titular da mesma posição exata.
+    slots.forEach((slot, i) => {
+      const starter = roster.get(lineup.starters[i])
+      for (const id of lineup.bench) {
+        const b = roster.get(id)
+        if (b.position === slot.code && starter.position === slot.code) assert.ok(b.overall <= starter.overall, `${b.name} devia ser titular`)
+      }
+    })
+    if (snap.club.roster.filter((p) => p.position === 'GK').length > 1) {
+      assert.ok(lineup.bench.some((id) => roster.get(id).position === 'GK'), 'banco sem goleiro reserva')
+    }
+  }
+})
+
+test('vender um titular completa a vaga sozinho e o banco aceita no máximo 5', async () => {
+  const { engine, users } = await setupWorld()
+  const u = users[0]
+  const snap = await engine.snapshot(u)
+  const key = `${snap.club.id}:geral`
+  const before = snap.lineups[key]
+  const sold = before.starters[3]
+  await engine.sellToMarket(u, sold)
+  const after = (await engine.snapshot(u)).lineups[key]
+  assert.equal(after.starters.includes(sold), false)
+  assert.equal(after.starters.filter(Boolean).length, 11)
+  before.starters.forEach((id, i) => {
+    if (i !== 3) assert.equal(after.starters[i], id, 'trocou titular que não precisava')
+  })
+  const roster = (await engine.snapshot(u)).club.roster
+  await assert.rejects(
+    () => engine.saveLineup(u, { formation: '4-3-3', starters: roster.slice(0, 11).map((p) => p.id), bench: roster.slice(11, 17).map((p) => p.id) }),
+    /Banco/,
+  )
 })
 
 let failed = 0
