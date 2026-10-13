@@ -308,6 +308,34 @@ function consumeSuspensions(state, clubId, matchId) {
   return applied
 }
 
+// Confere quem é dono de cada jogador e se os termos fazem sentido.
+function checkProposalTerms(state, from, to, terms, proposalId = null) {
+  const { requestPlayerIds = [], offerPlayerIds = [], coinsFrom = 0, coinsTo = 0 } = terms
+  if (!requestPlayerIds.length && !offerPlayerIds.length) throw new DraftError('Inclua pelo menos um jogador na negociação.')
+  if (coinsFrom < 0 || coinsTo < 0 || !Number.isFinite(coinsFrom) || !Number.isFinite(coinsTo)) throw new DraftError('Valores inválidos.')
+  if (coinsFrom && coinsTo) throw new DraftError('Só um dos clubes paga a diferença.')
+  const all = [...requestPlayerIds, ...offerPlayerIds]
+  if (new Set(all).size !== all.length) throw new DraftError('Jogador repetido na negociação.')
+  const lockedElsewhere = (id) => {
+    const lock = playerLocked(state, id)
+    if (!lock) return false
+    if (lock !== 'negociacao' || !proposalId) return true
+    return Object.values(state.proposals).some(
+      (x) => x.id !== proposalId && ['pendente', 'contraproposta'].includes(x.status) && [...x.requestPlayerIds, ...x.offerPlayerIds].includes(id),
+    )
+  }
+  for (const id of requestPlayerIds) {
+    const p = state.players[id]
+    if (!p || p.clubId !== to.id) throw new DraftError(`${p?.name || 'Jogador'} não é do ${to.name}.`)
+    if (lockedElsewhere(id)) throw new DraftError(`${p.name} está em outra negociação ou leilão.`)
+  }
+  for (const id of offerPlayerIds) {
+    const p = state.players[id]
+    if (!p || p.clubId !== from.id) throw new DraftError(`${p?.name || 'Jogador'} não é do ${from.name}.`)
+    if (lockedElsewhere(id)) throw new DraftError(`${p.name} está em outra negociação ou leilão.`)
+  }
+}
+
 function activeSuspensions(state, clubId) {
   return Object.values(state.suspensions).filter((s) => s.clubId === clubId && s.status === 'ativa')
 }
@@ -1021,18 +1049,7 @@ export class DraftEngine {
       const offerPlayerIds = payload.offerPlayerIds || []
       const coinsFrom = Number(payload.coinsFrom || payload.amount || 0)
       const coinsTo = Number(payload.coinsTo || 0)
-      if (!requestPlayerIds.length && !offerPlayerIds.length) throw new DraftError('Selecione jogadores na proposta.')
-      for (const id of requestPlayerIds) {
-        const p = state.players[id]
-        if (!p || p.clubId !== to.id) throw new DraftError('Jogador pretendido não pertence ao clube destinatário.')
-        if (playerLocked(state, id)) throw new DraftError('Jogador pretendido está bloqueado.')
-      }
-      for (const id of offerPlayerIds) {
-        const p = state.players[id]
-        if (!p || p.clubId !== from.id) throw new DraftError('Você só pode oferecer jogadores do seu elenco.')
-        if (playerLocked(state, id)) throw new DraftError('Jogador oferecido está bloqueado.')
-      }
-      if (coinsFrom < 0 || coinsTo < 0) throw new DraftError('Valores inválidos.')
+      checkProposalTerms(state, from, to, { requestPlayerIds, offerPlayerIds, coinsFrom, coinsTo })
       if (coinsFrom && spendable(from) < coinsFrom) throw new DraftError('Saldo insuficiente para a proposta.')
       const proposal = {
         id: nid('prp'),
@@ -1043,6 +1060,7 @@ export class DraftEngine {
         coinsFrom,
         coinsTo,
         status: 'pendente',
+        awaitingClubId: to.id,
         createdAt: state._now,
         updatedAt: state._now,
         versions: [],
@@ -1063,45 +1081,52 @@ export class DraftEngine {
       const p = state.proposals[proposalId]
       if (!p) throw new DraftError('Proposta não encontrada.', 404)
       if (!['pendente', 'contraproposta'].includes(p.status)) throw new DraftError('Essa proposta não aceita resposta.')
+      const isDest = p.toClubId === club.id
+      const isFrom = p.fromClubId === club.id
+      if (!isDest && !isFrom) throw new DraftError('Essa proposta não é do seu clube.')
+      const awaiting = p.awaitingClubId || (p.status === 'pendente' ? p.toClubId : p.fromClubId)
+      const other = isDest ? p.fromClubId : p.toClubId
       if (action === 'cancelar') {
-        if (p.fromClubId !== club.id) throw new DraftError('Só o remetente cancela uma proposta pendente.')
+        // Quem fez a última oferta pode retirá-la enquanto espera a resposta.
+        if (club.id === awaiting) throw new DraftError('Para encerrar, recuse a proposta.')
         p.status = 'cancelada'
         p.updatedAt = state._now
         setReserve(state.clubs[p.fromClubId], `proposal:${p.id}`, 0)
         setReserve(state.clubs[p.toClubId], `proposal:${p.id}`, 0)
         return p
       }
-      const isDest = p.toClubId === club.id
-      const isFrom = p.fromClubId === club.id
-      if (p.status === 'pendente' && !isDest) throw new DraftError('Aguarde a resposta do destinatário.')
-      if (p.status === 'contraproposta' && !isFrom) throw new DraftError('Aguarde a resposta da contraproposta.')
+      if (club.id !== awaiting) throw new DraftError('Aguarde a resposta do outro clube.')
       if (action === 'recusar') {
         p.status = 'recusada'
         p.updatedAt = state._now
         setReserve(state.clubs[p.fromClubId], `proposal:${p.id}`, 0)
         setReserve(state.clubs[p.toClubId], `proposal:${p.id}`, 0)
-        notifyClub(state, isDest ? p.fromClubId : p.toClubId, 'proposta_recusada', 'Proposta recusada', 'A negociação foi recusada.')
+        notifyClub(state, other, 'proposta_recusada', 'Proposta recusada', `${club.name} recusou a negociação.`, { proposalId: p.id })
         return p
       }
       if (action === 'contraproposta') {
+        const terms = {
+          requestPlayerIds: patch.requestPlayerIds || p.requestPlayerIds,
+          offerPlayerIds: patch.offerPlayerIds || p.offerPlayerIds,
+          coinsFrom: Number(patch.coinsFrom ?? p.coinsFrom) || 0,
+          coinsTo: Number(patch.coinsTo ?? p.coinsTo) || 0,
+        }
+        checkProposalTerms(state, state.clubs[p.fromClubId], state.clubs[p.toClubId], terms, p.id)
         p.versions.push(cloneJson({ ...p, versions: undefined }))
-        p.requestPlayerIds = patch.requestPlayerIds || p.requestPlayerIds
-        p.offerPlayerIds = patch.offerPlayerIds || p.offerPlayerIds
-        p.coinsFrom = patch.coinsFrom ?? p.coinsFrom
-        p.coinsTo = patch.coinsTo ?? p.coinsTo
+        Object.assign(p, terms)
         p.status = 'contraproposta'
+        p.awaitingClubId = other
+        p.lastOfferClubId = club.id
         p.updatedAt = state._now
         setReserve(state.clubs[p.fromClubId], `proposal:${p.id}`, 0)
         setReserve(state.clubs[p.toClubId], `proposal:${p.id}`, 0)
-        if (p.coinsFrom) {
-          if (spendable(state.clubs[p.fromClubId]) < p.coinsFrom) throw new DraftError('Saldo do clube de origem insuficiente.')
-          setReserve(state.clubs[p.fromClubId], `proposal:${p.id}`, p.coinsFrom)
+        // Reserva só o que quem fez a oferta se comprometeu a pagar; o outro lado paga ao aceitar.
+        const myPay = isFrom ? p.coinsFrom : p.coinsTo
+        if (myPay) {
+          if (spendable(club) < myPay) throw new DraftError('Saldo insuficiente para essa contraproposta.')
+          setReserve(club, `proposal:${p.id}`, myPay)
         }
-        if (p.coinsTo) {
-          if (spendable(state.clubs[p.toClubId]) < p.coinsTo) throw new DraftError('Saldo insuficiente para a contraproposta.')
-          setReserve(state.clubs[p.toClubId], `proposal:${p.id}`, p.coinsTo)
-        }
-        notifyClub(state, isDest ? p.fromClubId : p.toClubId, 'contraproposta', 'Contraproposta recebida', 'Há uma nova oferta na mesa.')
+        notifyClub(state, other, 'contraproposta', 'Contraproposta recebida', `${club.name} mudou os termos da negociação.`, { proposalId: p.id })
         return p
       }
       if (action === 'aceitar') {
@@ -1139,8 +1164,9 @@ export class DraftEngine {
     for (const id of p.offerPlayerIds) transferPlayer(state, state.players[id], to.id, 'negociacao')
     p.status = 'aceita'
     p.updatedAt = state._now
-    notifyClub(state, from.id, 'proposta_aceita', 'Negociação concluída', 'A proposta foi aceita.')
-    notifyClub(state, to.id, 'proposta_aceita', 'Negociação concluída', 'A proposta foi aceita.')
+    p.awaitingClubId = null
+    notifyClub(state, from.id, 'proposta_aceita', 'Negociação concluída', `Negócio fechado com ${to.name}.`, { proposalId: p.id })
+    notifyClub(state, to.id, 'proposta_aceita', 'Negociação concluída', `Negócio fechado com ${from.name}.`, { proposalId: p.id })
   }
 
   async saveLineup(actor, payload) {
@@ -1777,7 +1803,8 @@ export class DraftEngine {
         drawDone,
         club: club ? publicClub(state, club, { privateView: true }) : null,
         clubs: Object.values(state.clubs)
-          .filter((c) => peerIds.has(c.id) || c.id === club?.id)
+          // Todos os clubes do Draft aparecem para negociar, mesmo sem campeonato em comum.
+          .filter((c) => c.setupComplete || peerIds.has(c.id) || c.id === club?.id)
           .map((c) => publicClub(state, c, { privateView: c.id === club?.id })),
         market: marketOpen
           ? Object.values(state.players)

@@ -65,9 +65,9 @@ function MatchReport({ match, names, onOpen }) {
   )
 }
 
-export function CupsView({ snap, run }) {
+export function CupsView({ snap, run, focusMatchId = null }) {
   const names = useNames(snap)
-  const [sheet, setSheet] = useState(null)
+  const [sheet, setSheet] = useState(() => (focusMatchId ? (snap.matches || []).find((m) => m.id === focusMatchId) || null : null))
   const cupOf = (m) => (snap.championships || []).find((c) => c.id === m.championshipId)
   const mine = snap.club?.id
   const challenges = snap.challenges || []

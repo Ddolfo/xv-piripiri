@@ -7,6 +7,9 @@ import AdminPanel from './AdminPanel.jsx'
 import { PlayerCard } from './parts.jsx'
 import FormModal from './FormModal.jsx'
 import FormationPicker from './FormationPicker.jsx'
+import NotificationBell from './NotificationBell.jsx'
+import ProposalComposer from './ProposalComposer.jsx'
+import { payloadFor, termsFor } from './deal.js'
 import LineupView from './LineupView.jsx'
 import { CupsView, TableView } from './MatchViews.jsx'
 import PlayerFace from './PlayerFace.jsx'
@@ -45,7 +48,13 @@ const blankOnboard = () => ({ step: 1, name: '', formation: '', crest: null })
 
 export default function DraftApp() {
   const [snap, setSnap] = useState(null)
-  const [tab, setTab] = useState('clube')
+  const [tab, setTabState] = useState('clube')
+  const [marketArea, setMarketArea] = useState('livres')
+  const [focusMatchId, setFocusMatchId] = useState(null)
+  const setTab = (id) => {
+    setFocusMatchId(null)
+    setTabState(id)
+  }
   const [err, setErr] = useState('')
   const [ok, setOk] = useState('')
   const [busy, setBusy] = useState(false)
@@ -186,7 +195,6 @@ export default function DraftApp() {
     )
   }
 
-  const unread = (snap.notifications || []).filter((n) => !n.read).length
   const club = snap.club
   const drawDone = !!snap.drawDone
   const marketOpen = drawDone && snap.marketStatus === 'aberto'
@@ -196,9 +204,22 @@ export default function DraftApp() {
     ...(drawDone ? [['mercado', 'Mercado da Bola']] : []),
     ['campeonatos', 'Campeonatos'],
     ['tabela', 'Tabela do Campeonato'],
-    ['notas', `Notificações${unread ? ` (${unread})` : ''}`],
   ]
   const currentTab = tab === 'mercado' && !drawDone ? 'clube' : tab
+
+  // Clique numa notificação: marca como lida e leva ao lugar certo.
+  function openNotification(n, route) {
+    if (!n.read) draftApi.readNotes([n.id]).then(refresh).catch(() => {})
+    const target = route.tab === 'mercado' && !drawDone ? 'clube' : route.tab
+    setTabState(target)
+    if (route.area) setMarketArea(route.area)
+    setFocusMatchId(target === 'campeonatos' ? route.matchId : null)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  function readAll() {
+    draftApi.readNotes().then(refresh).catch(() => {})
+  }
 
   return (
     <section className="draft-xv" key={snap.me.id}>
@@ -213,6 +234,8 @@ export default function DraftApp() {
             </p>
           </div>
         </div>
+        <div className="hero-side">
+          <NotificationBell notifications={snap.notifications} onOpen={openNotification} onReadAll={readAll} />
         <div className="wallet-box">
           <span>Carteira</span>
           <b>{coins(club.spendable)}</b>
@@ -223,6 +246,7 @@ export default function DraftApp() {
           >
             Sair
           </button>
+        </div>
         </div>
       </div>
       {err ? <div className="alert">{err}</div> : null}
@@ -236,10 +260,9 @@ export default function DraftApp() {
       </div>
       {currentTab === 'clube' && <ClubView club={club} marketOpen={marketOpen} run={run} setModal={setModal} />}
       {currentTab === 'formacao' && <LineupView snap={snap} run={run} />}
-      {currentTab === 'mercado' && drawDone && <MarketView snap={snap} run={run} setModal={setModal} modal={modal} />}
-      {currentTab === 'campeonatos' && <CupsView snap={snap} run={run} />}
+      {currentTab === 'mercado' && drawDone && <MarketView snap={snap} run={run} setModal={setModal} area={marketArea} setArea={setMarketArea} />}
+      {currentTab === 'campeonatos' && <CupsView key={focusMatchId || 'cups'} snap={snap} run={run} focusMatchId={focusMatchId} />}
       {currentTab === 'tabela' && <TableView snap={snap} run={run} />}
-      {currentTab === 'notas' && <NotesView snap={snap} run={run} />}
       {modal}
     </section>
   )
@@ -411,10 +434,12 @@ function ClubView({ club, marketOpen, run, setModal }) {
   )
 }
 
-function MarketView({ snap, run, setModal }) {
+function MarketView({ snap, run, setModal, area: areaProp, setArea: setAreaProp }) {
   const [q, setQ] = useState('')
   const [ovr, setOvr] = useState('')
-  const [area, setArea] = useState('livres')
+  const [areaLocal, setAreaLocal] = useState('livres')
+  const area = areaProp || areaLocal
+  const setArea = setAreaProp || setAreaLocal
   const list = (snap.market || []).filter((p) => {
     if (q && !p.name.toLowerCase().includes(q.toLowerCase())) return false
     if (ovr && String(p.overall) !== ovr) return false
@@ -443,59 +468,52 @@ function MarketView({ snap, run, setModal }) {
     )
   }
 
-  function askOffer(c, p) {
+  const myClub = snap.club
+  const clubById = (id) => (snap.clubs || []).find((c) => c.id === id)
+  // Jogadores presos em outra negociação ou leilão não podem entrar numa nova.
+  const lockedFor = (proposalId) => {
+    const ids = new Set()
+    for (const x of snap.proposals || []) {
+      if (x.id === proposalId || !['pendente', 'contraproposta'].includes(x.status)) continue
+      for (const id of [...(x.requestPlayerIds || []), ...(x.offerPlayerIds || [])]) ids.add(id)
+    }
+    for (const a of snap.auctions || []) if (a.status === 'aberto') ids.add(a.playerId)
+    return ids
+  }
+
+  function openDeal(c, p) {
     setModal(
-      <FormModal
-        title={`Proposta por ${p.name}`}
-        intro={`${c.name} decide se aceita. Seu saldo disponível: ${coins(snap.club.spendable)}.`}
-        fields={[{ name: 'amount', label: 'Valor oferecido em XV-Coins', type: 'number', min: 1, defaultValue: String(p.buy || '') }]}
+      <ProposalComposer
+        title={`Negociar com ${c.name}`}
+        myClub={myClub}
+        otherClub={c}
+        initial={{ take: p ? [p.id] : [], give: [], pay: Math.min(p?.buy || 0, myClub.spendable ?? myClub.balance ?? 0), receive: 0 }}
+        lockedIds={lockedFor(null)}
         submitLabel="Enviar proposta"
         onClose={closeModal}
-        onSubmit={({ amount }) =>
-          run(() => draftApi.propose({ toClubId: c.id, requestPlayerIds: [p.id], coinsFrom: amount }), 'Proposta enviada.')
-        }
+        onSubmit={(terms) => run(() => draftApi.propose({ toClubId: c.id, ...payloadFor(terms, true) }), 'Proposta enviada.')}
       />,
     )
   }
 
-  function askTrade(c, p) {
-    const mine = [...(snap.club.roster || [])].sort((x, y) => y.overall - x.overall)
-    if (!mine.length) return
+  function openCounter(p) {
+    const otherId = p.fromClubId === myClub.id ? p.toClubId : p.fromClubId
+    const other = clubById(otherId)
+    if (!other) return
     setModal(
-      <FormModal
-        title={`Troca por ${p.name}`}
-        intro={`Escolha quem do seu elenco vai para o ${c.name}.`}
-        fields={[
-          {
-            name: 'offer',
-            label: 'Jogador oferecido',
-            type: 'select',
-            options: mine.map((x) => ({ value: x.id, label: `${x.name} · ${x.position} · ${x.overall}` })),
-          },
-          { name: 'extra', label: 'Complemento em XV-Coins', type: 'number', min: 0, defaultValue: '0', hint: 'Deixe 0 para uma troca simples.' },
-        ]}
-        submitLabel="Propor troca"
-        onClose={closeModal}
-        onSubmit={({ offer, extra }) =>
-          run(
-            () => draftApi.propose({ toClubId: c.id, requestPlayerIds: [p.id], offerPlayerIds: [offer], coinsFrom: extra || 0 }),
-            'Troca proposta.',
-          )
-        }
-      />,
-    )
-  }
-
-  function askCounter(p) {
-    setModal(
-      <FormModal
-        title="Contraproposta"
-        intro="Ajuste o valor que o clube de origem paga nesta negociação."
-        fields={[{ name: 'coinsFrom', label: 'Novo valor em XV-Coins', type: 'number', min: 0, defaultValue: String(p.coinsFrom || 0) }]}
+      <ProposalComposer
+        title={`Contraproposta para ${other.name}`}
+        myClub={myClub}
+        otherClub={other}
+        initial={termsFor(p, myClub.id)}
+        lockedIds={lockedFor(p.id)}
         submitLabel="Enviar contraproposta"
         onClose={closeModal}
-        onSubmit={({ coinsFrom }) =>
-          run(() => draftApi.respondProposal(p.id, { action: 'contraproposta', coinsFrom }), 'Contraproposta enviada.')
+        onSubmit={(terms) =>
+          run(
+            () => draftApi.respondProposal(p.id, { action: 'contraproposta', ...payloadFor(terms, p.fromClubId === myClub.id) }),
+            'Contraproposta enviada.',
+          )
         }
       />,
     )
@@ -600,6 +618,7 @@ function MarketView({ snap, run, setModal }) {
       )}
       {area === 'clubes' && (
         <div className="card">
+          {!(snap.clubs || []).some((c) => c.id !== snap.club.id) ? <p className="draft-empty">Ainda não há outros clubes no Draft.</p> : null}
           {(snap.clubs || [])
             .filter((c) => c.id !== snap.club.id)
             .map((c) => (
@@ -610,6 +629,16 @@ function MarketView({ snap, run, setModal }) {
                   <span className="muted">
                     {c.participantName} · {c.rosterCount} jogadores
                   </span>
+                  <button
+                    type="button"
+                    className="link-btn market-club-deal"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      openDeal(c, null)
+                    }}
+                  >
+                    Negociar
+                  </button>
                 </summary>
                 <div className="player-grid" style={{ marginTop: 10 }}>
                   {(c.roster || []).map((p) => (
@@ -617,20 +646,9 @@ function MarketView({ snap, run, setModal }) {
                       key={p.id}
                       player={p}
                       actions={
-                        <>
-                          <button
-                            className="btn"
-                            onClick={() => askOffer(c, p)}
-                          >
-                            Proposta em XV-Coins
-                          </button>
-                          <button
-                            className="btn ghost"
-                            onClick={() => askTrade(c, p)}
-                          >
-                            Propor troca
-                          </button>
-                        </>
+                        <button className="btn" onClick={() => openDeal(c, p)}>
+                          Fazer proposta
+                        </button>
                       }
                     />
                   ))}
@@ -642,76 +660,74 @@ function MarketView({ snap, run, setModal }) {
       {area === 'propostas' && (
         <div className="card">
           {!(snap.proposals || []).length ? <p className="draft-empty">Nenhuma proposta por enquanto.</p> : null}
-          {(snap.proposals || []).map((p) => {
-            const mine = snap.club?.id
-            const open = ['pendente', 'contraproposta'].includes(p.status)
-            const canAnswer = open && ((p.status === 'pendente' && p.toClubId === mine) || (p.status === 'contraproposta' && p.fromClubId === mine))
-            const canCancel = open && p.fromClubId === mine
-            return (
-              <div key={p.id} className="note proposal">
-                <div className="proposal-head">
-                  <b>
-                    {clubName(p.fromClubId)} → {clubName(p.toClubId)}
-                  </b>
-                  <span className="badge">{statusLabel(p.status)}</span>
-                </div>
-                <div className="muted">
-                  Pede {(p.requestPlayerIds || []).map(playerName).join(', ') || '—'}
-                  {(p.offerPlayerIds || []).length ? ` · oferece ${p.offerPlayerIds.map(playerName).join(', ')}` : ''}
-                  {p.coinsFrom ? ` · ${coins(p.coinsFrom)}` : ''}
-                </div>
-                {canAnswer || canCancel ? (
-                  <div className="actions">
-                    {canAnswer ? (
-                      <>
-                        <button className="btn" onClick={() => run(() => draftApi.respondProposal(p.id, { action: 'aceitar' }), 'Proposta aceita.')}>
-                          Aceitar
-                        </button>
-                        <button className="btn ghost" onClick={() => run(() => draftApi.respondProposal(p.id, { action: 'recusar' }), 'Proposta recusada.')}>
-                          Recusar
-                        </button>
-                        <button className="btn ghost" onClick={() => askCounter(p)}>
-                          Contraproposta
-                        </button>
-                      </>
-                    ) : null}
-                    {canCancel ? (
-                      <button className="btn danger" onClick={() => run(() => draftApi.respondProposal(p.id, { action: 'cancelar' }), 'Proposta cancelada.')}>
-                        Cancelar
-                      </button>
-                    ) : null}
+          {[...(snap.proposals || [])]
+            .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+            .map((p) => {
+              const mine = snap.club?.id
+              const open = ['pendente', 'contraproposta'].includes(p.status)
+              const awaiting = p.awaitingClubId || (p.status === 'pendente' ? p.toClubId : p.fromClubId)
+              const myTurn = open && awaiting === mine
+              const otherId = p.fromClubId === mine ? p.toClubId : p.fromClubId
+              const t = termsFor(p, mine)
+              const list = (ids) => ids.map(playerName).join(', ')
+              return (
+                <div key={p.id} className={`note proposal${myTurn ? ' my-turn' : ''}`}>
+                  <div className="proposal-head">
+                    <span className="club-cell">
+                      <CrestMark crest={clubById(otherId)?.crest} size={28} />
+                      <b>{clubName(otherId)}</b>
+                      <small className="muted">{p.fromClubId === mine ? 'você propôs' : 'propôs a você'}</small>
+                    </span>
+                    <span className={`badge${myTurn ? ' turn' : ''}`}>
+                      {open ? (myTurn ? 'Sua vez de responder' : 'Aguardando o outro clube') : statusLabel(p.status)}
+                    </span>
                   </div>
-                ) : null}
-              </div>
-            )
-          })}
+                  <div className="proposal-terms">
+                    <span>
+                      Você leva <b>{list(t.take) || 'ninguém'}</b>
+                    </span>
+                    <span>
+                      Você dá <b>{list(t.give) || 'ninguém'}</b>
+                    </span>
+                    {t.pay ? (
+                      <span>
+                        Você paga <b>{coins(t.pay)}</b>
+                      </span>
+                    ) : null}
+                    {t.receive ? (
+                      <span>
+                        Você recebe <b>{coins(t.receive)}</b>
+                      </span>
+                    ) : null}
+                    {!t.pay && !t.receive ? <span className="muted">Troca direta, sem dinheiro</span> : null}
+                  </div>
+                  {open ? (
+                    <div className="actions">
+                      {myTurn ? (
+                        <>
+                          <button className="btn" onClick={() => run(() => draftApi.respondProposal(p.id, { action: 'aceitar' }), 'Negócio fechado.')}>
+                            Aceitar
+                          </button>
+                          <button className="btn ghost" onClick={() => openCounter(p)}>
+                            Contraproposta
+                          </button>
+                          <button className="btn ghost" onClick={() => run(() => draftApi.respondProposal(p.id, { action: 'recusar' }), 'Proposta recusada.')}>
+                            Recusar
+                          </button>
+                        </>
+                      ) : (
+                        <button className="btn danger" onClick={() => run(() => draftApi.respondProposal(p.id, { action: 'cancelar' }), 'Proposta retirada.')}>
+                          Retirar proposta
+                        </button>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+              )
+            })}
         </div>
       )}
     </div>
   )
 }
 
-function NotesView({ snap, run }) {
-  return (
-    <div className="card">
-      <div className="actions">
-        <button className="btn ghost" onClick={() => run(() => draftApi.readNotes(), 'Notificações lidas.')}>
-          Marcar todas como lidas
-        </button>
-      </div>
-      {!(snap.notifications || []).length ? <p className="draft-empty">Nenhuma notificação por enquanto.</p> : null}
-      <div className="note-list">
-        {(snap.notifications || [])
-          .slice()
-          .reverse()
-          .map((n) => (
-            <div key={n.id} className={n.read ? 'note' : 'note unread'}>
-              <b>{n.title}</b>
-              <div>{n.body}</div>
-              <time>{new Date(n.at).toLocaleString('pt-BR')}</time>
-            </div>
-          ))}
-      </div>
-    </div>
-  )
-}

@@ -595,6 +595,62 @@ function homeWon(m) {
   return m.homeGoals > m.awayGoals
 }
 
+test('negociação: troca com dinheiro, contraproposta com jogadores e vez alternada', async () => {
+  const { engine, users } = await setupWorld()
+  const [a, b] = users
+  const A = (await engine.snapshot(a)).club
+  const B = (await engine.snapshot(b)).club
+  const wantB = B.roster[0]
+  const giveA = A.roster[0]
+  const extraB = B.roster[1]
+  const extraA = A.roster[1]
+  // A pede um jogador do B e oferece um seu + 1.000.
+  const prop = await engine.createProposal(a, { toClubId: B.id, requestPlayerIds: [wantB.id], offerPlayerIds: [giveA.id], coinsFrom: 1000 })
+  assert.equal(prop.awaitingClubId, B.id)
+  await assert.rejects(() => engine.respondProposal(a, prop.id, 'aceitar'), /Aguarde/)
+  // B contrapropõe: quer também outro jogador do A e dá mais um seu, sem dinheiro.
+  const c1 = await engine.respondProposal(b, prop.id, 'contraproposta', {
+    requestPlayerIds: [wantB.id, extraB.id],
+    offerPlayerIds: [giveA.id, extraA.id],
+    coinsFrom: 0,
+    coinsTo: 0,
+  })
+  assert.equal(c1.awaitingClubId, A.id)
+  await assert.rejects(() => engine.respondProposal(b, prop.id, 'aceitar'), /Aguarde/)
+  // A contrapropõe de novo: aceita os jogadores, mas quer receber 500.
+  const c2 = await engine.respondProposal(a, prop.id, 'contraproposta', { coinsFrom: 0, coinsTo: 500 })
+  assert.equal(c2.awaitingClubId, B.id)
+  const balA = (await engine.snapshot(a)).club.balance
+  const balB = (await engine.snapshot(b)).club.balance
+  await engine.respondProposal(b, prop.id, 'aceitar')
+  const A2 = (await engine.snapshot(a)).club
+  const B2 = (await engine.snapshot(b)).club
+  assert.ok(A2.roster.some((p) => p.id === wantB.id) && A2.roster.some((p) => p.id === extraB.id))
+  assert.ok(B2.roster.some((p) => p.id === giveA.id) && B2.roster.some((p) => p.id === extraA.id))
+  assert.equal(A2.balance - balA, 500)
+  assert.equal(balB - B2.balance, 500)
+})
+
+test('negociação: contraproposta com jogador de terceiro é recusada e quem ofereceu pode retirar', async () => {
+  const { engine, users } = await setupWorld()
+  const [a, b, c] = users
+  const A = (await engine.snapshot(a)).club
+  const B = (await engine.snapshot(b)).club
+  const C = (await engine.snapshot(c)).club
+  const prop = await engine.createProposal(a, { toClubId: B.id, requestPlayerIds: [B.roster[0].id], coinsFrom: 2000 })
+  await assert.rejects(
+    () => engine.respondProposal(b, prop.id, 'contraproposta', { offerPlayerIds: [C.roster[0].id] }),
+    /não é do/,
+  )
+  await assert.rejects(() => engine.respondProposal(b, prop.id, 'contraproposta', { coinsFrom: 100, coinsTo: 100 }), /Só um/)
+  await assert.rejects(() => engine.respondProposal(b, prop.id, 'cancelar'), /recuse/)
+  const reservedBefore = (await engine.snapshot(a)).club.reserved
+  assert.equal(reservedBefore, 2000)
+  await engine.respondProposal(a, prop.id, 'cancelar')
+  assert.equal((await engine.snapshot(a)).club.reserved, 0)
+  void A
+})
+
 let failed = 0
 for (const item of tests) {
   try {
