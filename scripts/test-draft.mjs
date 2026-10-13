@@ -296,8 +296,7 @@ test('admin exclui campeonato em andamento com confrontos', async () => {
   const created = before.championships.find((c) => c.id === cup.id)
   assert.ok(created)
   assert.ok(created.fixtures.length > 0)
-  await assert.rejects(() => engine.deleteChampionship(admin, cup.id, ''), /justificativa/)
-  await engine.deleteChampionship(admin, cup.id, 'Reinício da temporada')
+  await engine.deleteChampionship(admin, cup.id)
   const after = await engine.snapshot(admin)
   assert.equal(after.championships.some((c) => c.id === cup.id), false)
   assert.ok(after.audit.some((a) => a.action === 'excluir_campeonato'))
@@ -308,9 +307,8 @@ test('admin exclui participante criado e libera o elenco', async () => {
   const snap = await engine.snapshot(users[0])
   const clubId = snap.club.id
   const owned = snap.club.roster[0]
-  await assert.rejects(() => engine.deleteParticipant(admin, users[0].id, ''), /justificativa/)
   await assert.rejects(() => engine.deleteParticipant(admin, admin.id, 'teste'), /administrativa/)
-  await engine.deleteParticipant(admin, users[0].id, 'Conta criada por engano')
+  await engine.deleteParticipant(admin, users[0].id)
   const after = await engine.snapshot(admin)
   assert.equal(after.users.some((u) => u.id === users[0].id), false)
   assert.equal(after.clubs.some((c) => c.id === clubId), false)

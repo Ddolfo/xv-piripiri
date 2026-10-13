@@ -2,7 +2,7 @@ import { useState } from 'react'
 
 // Janela com campos e confirmação, no lugar do prompt() do navegador.
 // fields: [{ name, label, type: 'number' | 'select' | 'password' | 'text', defaultValue, options, min, hint }]
-export default function FormModal({ title, intro, fields, submitLabel, onSubmit, onClose }) {
+export default function FormModal({ title, intro, fields, submitLabel, onSubmit, onClose, danger = false }) {
   const [values, setValues] = useState(() =>
     Object.fromEntries(fields.map((f) => [f.name, f.defaultValue ?? (f.type === 'select' ? f.options?.[0]?.value ?? '' : '')])),
   )
@@ -57,7 +57,7 @@ export default function FormModal({ title, intro, fields, submitLabel, onSubmit,
           <button type="button" className="btn ghost" onClick={onClose}>
             Cancelar
           </button>
-          <button type="submit" className="btn">
+          <button type="submit" className={danger ? 'btn danger-solid' : 'btn'} autoFocus={!fields.length && !danger}>
             {submitLabel}
           </button>
         </div>

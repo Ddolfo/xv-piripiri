@@ -2,17 +2,7 @@ import { useState } from 'react'
 import { draftApi, formatLabel, statusLabel } from './api.js'
 import CrestMark from './CrestMark.jsx'
 import MatchSheet from './MatchSheet.jsx'
-
-function useNames(snap) {
-  const clubs = snap.clubs || []
-  const players = [...(snap.club?.roster || []), ...clubs.flatMap((c) => c.roster || []), ...(snap.players || [])]
-  return {
-    club: (id) => clubs.find((c) => c.id === id) || (snap.club?.id === id ? snap.club : null),
-    clubName: (id) => clubs.find((c) => c.id === id)?.name || (snap.club?.id === id ? snap.club.name : 'Clube'),
-    playerName: (id) => players.find((p) => p.id === id)?.name || null,
-    playerPosition: (id) => players.find((p) => p.id === id)?.position || null,
-  }
-}
+import { useNames } from './names.js'
 
 function MatchReport({ match, names, onOpen }) {
   const events = (match.result?.events || []).filter((e) => ['gol', 'amarelo', 'vermelho'].includes(e.type))
@@ -242,18 +232,115 @@ const LEADER_TABS = [
   ['reds', 'Vermelhos', 'Vermelhos'],
 ]
 
-export function TableView({ snap }) {
-  const [cupId, setCupId] = useState(snap.championships?.[0]?.id || '')
+export function StandingsTable({ cup, highlightClubId }) {
+  return (
+    <div className="table-wrap">
+      <table className="draft-table standings">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Clube</th>
+            <th title="Pontos">P</th>
+            <th title="Jogos">J</th>
+            <th title="Vitórias">V</th>
+            <th title="Empates">E</th>
+            <th title="Derrotas">D</th>
+            <th title="Gols pró">GP</th>
+            <th title="Gols contra">GC</th>
+            <th title="Saldo de gols">SG</th>
+            <th title="Faltas">F</th>
+            <th title="Cartões amarelos">
+              <span className="card-chip yellow" />
+            </th>
+            <th title="Cartões vermelhos">
+              <span className="card-chip red" />
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {(cup.standings || []).map((r) => (
+            <tr key={r.clubId} className={r.clubId === highlightClubId ? 'mine' : ''}>
+              <td>{r.position}º</td>
+              <td className="club-cell">
+                <CrestMark crest={r.crest} size={26} /> {r.name}
+              </td>
+              <td>
+                <b>{r.points}</b>
+              </td>
+              <td>{r.played}</td>
+              <td>{r.wins}</td>
+              <td>{r.draws}</td>
+              <td>{r.losses}</td>
+              <td>{r.gf}</td>
+              <td>{r.ga}</td>
+              <td>{r.gd > 0 ? `+${r.gd}` : r.gd}</td>
+              <td>{r.fouls ?? 0}</td>
+              <td>{r.yellows ?? 0}</td>
+              <td>{r.reds ?? 0}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+export function LeadersBoard({ cup, highlightClubId, limit = 15 }) {
   const [board, setBoard] = useState('goals')
-  const names = useNames(snap)
-  const cup = (snap.championships || []).find((c) => c.id === cupId) || snap.championships?.[0]
-  if (!cup) return <div className="card draft-empty">Nenhum campeonato ativo.</div>
   const [, boardLabel, boardColumn] = LEADER_TABS.find(([id]) => id === board)
   const leaders = [...(cup.leaders || [])]
     .filter((r) => r[board] > 0)
     .sort((a, b) => b[board] - a[board] || a.name.localeCompare(b.name, 'pt-BR'))
-    .slice(0, 15)
+    .slice(0, limit)
+  return (
+    <>
+      <div className="leaders-head">
+        <h3>Jogadores</h3>
+        <div className="segmented" role="group" aria-label="Ranking">
+          {LEADER_TABS.map(([id, label]) => (
+            <button key={id} type="button" className={board === id ? 'active' : ''} aria-pressed={board === id} onClick={() => setBoard(id)}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+      {leaders.length ? (
+        <table className="draft-table leaders">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Jogador</th>
+              <th>Clube</th>
+              <th>{boardColumn}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {leaders.map((r, i) => (
+              <tr key={r.playerId} className={r.clubId === highlightClubId ? 'mine' : ''}>
+                <td>{i + 1}º</td>
+                <td>
+                  {r.name} <small className="muted">{r.position}</small>
+                </td>
+                <td>{r.clubName}</td>
+                <td>
+                  <b>{r[board]}</b>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <p className="draft-empty">Ninguém em {boardLabel.toLowerCase()} ainda. Os números aparecem depois das partidas.</p>
+      )}
+    </>
+  )
+}
 
+export function TableView({ snap }) {
+  const [cupId, setCupId] = useState(snap.championships?.[0]?.id || '')
+  const names = useNames(snap)
+  const cup = (snap.championships || []).find((c) => c.id === cupId) || snap.championships?.[0]
+  if (!cup) return <div className="card draft-empty">Nenhum campeonato ativo.</div>
   return (
     <div className="tables">
       <div className="card">
@@ -269,54 +356,7 @@ export function TableView({ snap }) {
           <h3>{cup.name}</h3>
         )}
         {cup.format === 'pontos-corridos' ? (
-          <div className="table-wrap">
-            <table className="draft-table standings">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Clube</th>
-                  <th title="Pontos">P</th>
-                  <th title="Jogos">J</th>
-                  <th title="Vitórias">V</th>
-                  <th title="Empates">E</th>
-                  <th title="Derrotas">D</th>
-                  <th title="Gols pró">GP</th>
-                  <th title="Gols contra">GC</th>
-                  <th title="Saldo de gols">SG</th>
-                  <th title="Faltas">F</th>
-                  <th title="Cartões amarelos">
-                    <span className="card-chip yellow" />
-                  </th>
-                  <th title="Cartões vermelhos">
-                    <span className="card-chip red" />
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {(cup.standings || []).map((r) => (
-                  <tr key={r.clubId} className={r.clubId === snap.club?.id ? 'mine' : ''}>
-                    <td>{r.position}º</td>
-                    <td className="club-cell">
-                      <CrestMark crest={r.crest} size={26} /> {r.name}
-                    </td>
-                    <td>
-                      <b>{r.points}</b>
-                    </td>
-                    <td>{r.played}</td>
-                    <td>{r.wins}</td>
-                    <td>{r.draws}</td>
-                    <td>{r.losses}</td>
-                    <td>{r.gf}</td>
-                    <td>{r.ga}</td>
-                    <td>{r.gd > 0 ? `+${r.gd}` : r.gd}</td>
-                    <td>{r.fouls ?? 0}</td>
-                    <td>{r.yellows ?? 0}</td>
-                    <td>{r.reds ?? 0}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <StandingsTable cup={cup} highlightClubId={snap.club?.id} />
         ) : (
           <div className="note-list">
             {(cup.fixtures || []).map((f) => (
@@ -328,48 +368,9 @@ export function TableView({ snap }) {
           </div>
         )}
       </div>
-
       <div className="card">
-        <div className="leaders-head">
-          <h3>Jogadores</h3>
-          <div className="segmented" role="group" aria-label="Ranking">
-            {LEADER_TABS.map(([id, label]) => (
-              <button key={id} type="button" className={board === id ? 'active' : ''} aria-pressed={board === id} onClick={() => setBoard(id)}>
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-        {leaders.length ? (
-          <table className="draft-table leaders">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Jogador</th>
-                <th>Clube</th>
-                <th>{boardColumn}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {leaders.map((r, i) => (
-                <tr key={r.playerId} className={r.clubId === snap.club?.id ? 'mine' : ''}>
-                  <td>{i + 1}º</td>
-                  <td>
-                    {r.name} <small className="muted">{r.position}</small>
-                  </td>
-                  <td>{r.clubName}</td>
-                  <td>
-                    <b>{r[board]}</b>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <p className="draft-empty">Ninguém em {boardLabel.toLowerCase()} ainda. Os números aparecem depois das partidas.</p>
-        )}
+        <LeadersBoard cup={cup} highlightClubId={snap.club?.id} />
       </div>
-
     </div>
   )
 }

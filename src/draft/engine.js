@@ -588,8 +588,7 @@ export class DraftEngine {
   async deleteParticipant(actor, userId, justification) {
     return this.tx(async (state) => {
       requireAdmin(actor, state)
-      const reason = normalizeName(justification)
-      if (!reason) throw new DraftError('Informe a justificativa para excluir o participante.')
+      const reason = normalizeName(justification) || 'Excluído pelo administrador'
       const user = state.users[userId]
       if (!user) throw new DraftError('Participante não encontrado.', 404)
       if (user.role === 'admin' || user.username === ADMIN_USERNAME) {
@@ -689,9 +688,7 @@ export class DraftEngine {
         )
       }
       const already = clubs.filter((c) => rosterOf(state, c.id).length > 0)
-      if (already.length && !justification) {
-        throw new DraftError('Já existe sorteio oficial. Informe uma justificativa para redesenhar.')
-      }
+      if (already.length && !justification) justification = 'Novo sorteio feito pelo administrador'
       if (already.length) {
         for (const club of already) {
           for (const p of rosterOf(state, club.id)) {
@@ -1623,8 +1620,7 @@ export class DraftEngine {
   async deleteChampionship(actor, championshipId, justification) {
     return this.tx(async (state) => {
       requireAdmin(actor, state)
-      const reason = normalizeName(justification)
-      if (!reason) throw new DraftError('Informe a justificativa para excluir o campeonato.')
+      const reason = normalizeName(justification) || 'Excluído pelo administrador'
       const cup = state.championships[championshipId]
       if (!cup) throw new DraftError('Campeonato não encontrado.', 404)
       const fixtureIds = new Set()
