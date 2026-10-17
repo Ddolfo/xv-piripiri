@@ -304,6 +304,9 @@ export default function Estatisticas({ store }) {
         club={store.club}
         overall={overall}
         matches={ea.matches}
+        history={store.history}
+        playoffs={ea.playoffs}
+        playoffGames={season?.playoffGames || overall?.playoffGames || 0}
         divisionCode={divisionCode}
         loading={loading}
         onSync={syncSaved}

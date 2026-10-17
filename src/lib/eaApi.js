@@ -789,7 +789,7 @@ function normalizePlayoffs(payload) {
     const bestFinishGroup = num(p.bestFinishGroup)
     return {
       seasonId: String(p.seasonId || ''),
-      seasonName: String(p.seasonName || '').replace('CLUBS_LEAGUE_SEASON_', 'Temporada '),
+      seasonName: String(p.seasonName || '').replace(/CLUBS_LEAGUE_(?:CLOSED_)?SEASON_0*(d+)/, 'Temporada $1'),
       bestDivision,
       bestDivisionLabel: divisionLabel(bestDivision),
       bestFinishGroup,

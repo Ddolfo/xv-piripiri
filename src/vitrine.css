@@ -778,3 +778,58 @@ button.match-row:hover { background: rgba(255, 255, 255, 0.03); border-color: va
 
   .player-hero h2 { font-size: 30px; }
 }
+
+/* Resumo do playoff (filtro Playoff em Últimas partidas) */
+.po {
+  margin: 0 0 12px;
+  padding: 16px;
+  border-radius: var(--radius-md, 14px);
+  background:
+    radial-gradient(120% 160% at 100% 0%, rgba(255, 214, 10, 0.1), transparent 60%),
+    var(--surface-2);
+}
+.po-head { display: flex; align-items: center; gap: 12px; }
+.po-head h4 { margin: 0; font-family: var(--font-display); font-size: 17px; font-weight: 600; letter-spacing: -0.02em; }
+.po-head p { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
+.po-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 14px 0 0;
+}
+.po-grid > div { display: flex; flex-direction: column; padding: 10px 12px; border-radius: 12px; background: var(--surface-3); min-width: 0; }
+.po-grid dt { color: var(--muted); font-size: 11px; }
+.po-grid dd {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin: 6px 0 0;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+.po-grid dd i { color: var(--muted); font-style: normal; font-weight: 400; }
+.po-grid dd .v { color: var(--ok); }
+.po-grid dd .d { color: var(--danger); }
+.po-grid dd.po-finish { font-size: 17px; white-space: normal; color: var(--gold, #ffd60a); }
+.po-grid small { margin-top: 4px; color: var(--muted); font-size: 11px; }
+.po-form { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 0; padding: 0; list-style: none; }
+.po-form li {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.po-form li.v { background: rgba(48, 209, 88, 0.16); color: var(--ok); }
+.po-form li.e { background: rgba(142, 142, 147, 0.2); color: var(--muted-2); }
+.po-form li.d { background: rgba(255, 69, 58, 0.16); color: var(--danger); }
+.po-note { margin: 10px 0 0; color: var(--muted); font-size: 11px; line-height: 1.45; }
+@media (max-width: 640px) {
+  .po-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
