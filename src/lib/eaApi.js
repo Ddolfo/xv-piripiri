@@ -25,7 +25,16 @@ export const BARCARENA_CLUB = {
   tagline: 'Painel técnico · FC 27',
 }
 
-export const COACH_CLUBS = [XV_CLUB, BARCARENA_CLUB]
+export const CARMO_CLUB = {
+  id: 'carmo',
+  name: 'Carmo do Cajuru',
+  clubId: '1721748',
+  legacyClubIds: [],
+  platform: 'common-gen5',
+  tagline: 'Painel técnico · FC 27',
+}
+
+export const COACH_CLUBS = [XV_CLUB, BARCARENA_CLUB, CARMO_CLUB]
 
 export function isXvClubId(id) {
   return String(id) === String(XV_CLUB.clubId)

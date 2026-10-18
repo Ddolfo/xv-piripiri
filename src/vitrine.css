@@ -762,7 +762,7 @@ button.match-row:hover { background: rgba(255, 255, 255, 0.03); border-color: va
   .tile { padding: 16px 16px 14px; border-radius: 18px; }
   .tile dd { font-size: 26px; padding-top: 12px; }
   .mc-form { padding: 16px; border-radius: 18px; gap: 12px; }
-  .mc-form ol { width: 100%; grid-auto-columns: minmax(0, 1fr); gap: 5px; }
+  .mc-form ol { width: 100%; grid-auto-columns: minmax(0, 34px); justify-content: end; gap: 5px; }
   .mc-form li { height: 34px; border-radius: 10px; font-size: 12px; }
   .mc-list { padding: 16px 6px 6px; border-radius: 18px; }
   .mc-list-head { padding: 0 10px 10px; }

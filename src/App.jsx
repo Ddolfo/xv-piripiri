@@ -5,7 +5,7 @@ import Rivais from './components/Rivais'
 import { useStore } from './hooks/useStore'
 import {
   applyRecorte,
-  BARCARENA_CLUB,
+  COACH_CLUBS,
   bundleToEa,
   clubById,
   isXvClubId,
@@ -31,7 +31,7 @@ const VIEW_KEY = 'xv-active-view'
 function readView() {
   try {
     const v = sessionStorage.getItem(VIEW_KEY)
-    if (v === 'draft' || v === BARCARENA_CLUB.clubId || v === XV_CLUB.clubId) return v
+    if (v === 'draft' || COACH_CLUBS.some((c) => c.clubId === v)) return v
   } catch {
     /* ignore */
   }
