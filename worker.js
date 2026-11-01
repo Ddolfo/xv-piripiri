@@ -1,7 +1,7 @@
 import { DraftEngine } from './src/draft/engine.js'
 import { handleDraftRequest } from './src/draft/http.js'
 import { createDurableStore, createMemoryStore } from './src/draft/store.js'
-import { handleShared, proxyEa, pullAllClubs } from './worker-ea.js'
+import { handleIngest, handleShared, proxyEa, pullAllClubs } from './worker-ea.js'
 
 export class DraftRoom {
   constructor(ctx, env) {
@@ -108,6 +108,10 @@ export default {
         adminPassword: env.DRAFT_ADMIN_PASSWORD || '',
       })
       return handleDraftRequest(request, engine)
+    }
+
+    if (url.pathname === '/ingest') {
+      return handleIngest(request, env)
     }
 
     if (url.pathname.startsWith('/shared/')) {

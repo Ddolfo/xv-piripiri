@@ -1,4 +1,5 @@
 import { COACH_CLUBS, fixEaTree, normalizeMatches } from './src/lib/eaApi.js'
+import { SYNC_PATHS, syncKey } from './src/lib/eaSync.js'
 import { mergeHistory } from './src/lib/rivals.js'
 
 const EA_ORIGIN = 'https://proclubs.ea.com'
@@ -63,7 +64,10 @@ async function saveStale(env, key, body, contentType) {
   if (!env.XV_KV) return
   const mark = edgeKey('ea-kv-mark', key)
   if (await cache.match(mark)) return
-  await env.XV_KV.put(`ea:${key}`, body, { expirationTtl: KV_TTL, metadata: { contentType } })
+  await env.XV_KV.put(`ea:${key}`, body, {
+    expirationTtl: KV_TTL,
+    metadata: { contentType, savedAt: new Date().toISOString() },
+  })
   await cache.put(mark, new Response('1', { headers: { 'cache-control': 'public, max-age=3600' } }))
 }
 
@@ -81,6 +85,21 @@ export async function proxyEa(url, env, ctx) {
     })
   }
 
+  // Sem a EA: primeiro o KV (global, onde o envio manual grava), depois o cache da borda.
+  if (env.XV_KV) {
+    const kv = await env.XV_KV.getWithMetadata(`ea:${key}`, { type: 'arrayBuffer' })
+    if (kv?.value) {
+      return new Response(kv.value, {
+        headers: {
+          'content-type': kv.metadata?.contentType || 'application/json',
+          ...CORS,
+          'cache-control': 'no-store',
+          'x-ea-stale': 'kv',
+          ...(kv.metadata?.savedAt ? { 'x-ea-saved-at': kv.metadata.savedAt } : {}),
+        },
+      })
+    }
+  }
   const stale = await caches.default.match(edgeKey('ea-stale', key))
   if (stale) {
     return new Response(stale.body, {
@@ -91,19 +110,6 @@ export async function proxyEa(url, env, ctx) {
         'x-ea-stale': 'edge',
       },
     })
-  }
-  if (env.XV_KV) {
-    const kv = await env.XV_KV.getWithMetadata(`ea:${key}`, { type: 'arrayBuffer' })
-    if (kv?.value) {
-      return new Response(kv.value, {
-        headers: {
-          'content-type': kv.metadata?.contentType || 'application/json',
-          ...CORS,
-          'cache-control': 'no-store',
-          'x-ea-stale': 'kv',
-        },
-      })
-    }
   }
 
   const body = upstream ? await upstream.arrayBuffer() : '{"error":"EA indisponível"}'
@@ -177,6 +183,92 @@ export async function handleShared(request, url, env) {
     }
   }
   return json(await readHistory(env, String(club.clubId)), 200, { 'cache-control': 'no-store' })
+}
+
+// ---- Envio manual: o navegador de quem administra busca na EA e manda para cá ----
+
+const INGEST_PATHS = new Set(SYNC_PATHS)
+const MAX_INGEST_ITEMS = 80
+const MAX_ITEM_CHARS = 3_000_000
+
+function sameSecret(a, b) {
+  const x = String(a || '')
+  const y = String(b || '')
+  let diff = x.length ^ y.length
+  for (let i = 0; i < Math.max(x.length, y.length); i += 1) diff |= (x.charCodeAt(i) || 0) ^ (y.charCodeAt(i) || 0)
+  return diff === 0
+}
+
+export async function handleIngest(request, env) {
+  if (request.method === 'OPTIONS') {
+    return new Response(null, {
+      status: 204,
+      headers: { ...CORS, 'access-control-allow-methods': 'POST, OPTIONS', 'access-control-allow-headers': 'Content-Type' },
+    })
+  }
+  if (request.method !== 'POST') return json({ error: 'Use POST.' }, 405)
+  if (Number(request.headers.get('content-length') || 0) > 20_000_000) return json({ error: 'Envio grande demais.' }, 413)
+
+  let body
+  try {
+    body = await request.json()
+  } catch {
+    return json({ error: 'Envio inválido.' }, 400)
+  }
+  if (!env.DRAFT_ADMIN_PASSWORD || !sameSecret(body?.password, env.DRAFT_ADMIN_PASSWORD)) {
+    await sleep(800)
+    return json({ error: 'Senha incorreta.' }, 401)
+  }
+  if (!env.XV_KV) return json({ error: 'KV indisponível no worker.' }, 500)
+
+  const ids = new Set(COACH_CLUBS.map((c) => String(c.clubId)))
+  const names = new Set(COACH_CLUBS.map((c) => c.name))
+  const savedAt = new Date().toISOString()
+  const fresh = {}
+  let saved = 0
+  let skipped = 0
+
+  for (const item of (Array.isArray(body.items) ? body.items : []).slice(0, MAX_INGEST_ITEMS)) {
+    const path = String(item?.path || '')
+    const params = item?.params && typeof item.params === 'object' ? item.params : {}
+    const id = String(params.clubId || params.clubIds || '')
+    const okClub = id ? ids.has(id) : names.has(String(params.clubName || ''))
+    const text = item?.data === undefined ? '' : JSON.stringify(item.data)
+    if (!INGEST_PATHS.has(path) || !okClub || !text || text.length > MAX_ITEM_CHARS) {
+      skipped += 1
+      continue
+    }
+    const key = syncKey(path, params)
+    const contentType = 'application/json; charset=utf-8'
+    await env.XV_KV.put(`ea:${key}`, text, { expirationTtl: KV_TTL, metadata: { contentType, savedAt, manual: true } })
+    await caches.default.put(
+      edgeKey('ea-stale', key),
+      new Response(text, { headers: { 'content-type': contentType, 'cache-control': 'public, max-age=86400' } }),
+    )
+    saved += 1
+    if (path === '/api/fc/clubs/matches') {
+      try {
+        const list = normalizeMatches(fixEaTree(item.data), id, String(params.matchType || 'leagueMatch'))
+        fresh[id] = [...(fresh[id] || []), ...list]
+      } catch {
+        /* resposta de partidas inválida */
+      }
+    }
+  }
+
+  const clubs = {}
+  for (const [clubId, list] of Object.entries(fresh)) {
+    const cur = await readHistory(env, clubId)
+    const matches = mergeHistory(cur.matches, list)
+    const added = Math.max(0, matches.length - cur.matches.length)
+    if (added || JSON.stringify(matches) !== JSON.stringify(cur.matches)) {
+      await env.XV_KV.put(historyKey(clubId), JSON.stringify({ clubId, updatedAt: savedAt, matches }))
+    }
+    const club = COACH_CLUBS.find((c) => String(c.clubId) === clubId)
+    clubs[clubId] = { name: club?.name || clubId, received: list.length, added }
+  }
+  await env.XV_KV.put('sync:last', JSON.stringify({ at: savedAt, saved, clubs }))
+  return json({ ok: true, at: savedAt, saved, skipped, clubs }, 200, { 'cache-control': 'no-store' })
 }
 
 export async function pullAllClubs(env) {

@@ -299,9 +299,14 @@ export default function Matchday({
           <h2 id="mc-title">{club.name}</h2>
           <p>Números do clube no FC 27, direto da EA.</p>
         </div>
-        <button type="button" className="link-btn" onClick={onSync} disabled={loading || !club.clubId}>
-          {loading ? 'Atualizando…' : 'Atualizar da EA'}
-        </button>
+        <div className="mc-actions">
+          <button type="button" className="link-btn" onClick={onSync} disabled={loading || !club.clubId}>
+            {loading ? 'Atualizando…' : 'Atualizar da EA'}
+          </button>
+          <a className="link-btn" href={`${import.meta.env.BASE_URL}?receber=1`} title="Quando a EA bloqueia o painel">
+            Enviar da EA
+          </a>
+        </div>
       </header>
 
       <dl className="bento">
